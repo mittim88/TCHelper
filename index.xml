@@ -1,2 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1"/>
+<index version="1" name="TCHelper"/>
+
+<metadata>
+<version name="2.5.1" author="mittim88">
+      </version>
+</metadata>
