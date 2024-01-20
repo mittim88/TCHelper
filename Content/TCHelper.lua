@@ -1,6 +1,6 @@
--- @version 2.5.1
 -- @author mittim88
-
+-- @provides osc.lua
+-- @version 2.5.1
 
 
 local version = '2.5.1'
