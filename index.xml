@@ -1,11 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="TCHelper" commit="c623610240b530953f9523b955060f7e9f312842">
+<index version="1" name="TCHelper" commit="a33967448781d6f22caec72b5985d78af5981e6c">
   <category name="Content">
-    <reapack name="osc.lua" type="script">
-      <version name="1.0" time="2024-01-20T12:04:51Z">
-        <source main="main">https://github.com/mittim88/TCHelper/raw/c623610240b530953f9523b955060f7e9f312842/Content/osc.lua</source>
-      </version>
-    </reapack>
     <reapack name="TCHelper.lua" type="script">
       <version name="2.5.1" time="2024-01-19T13:35:10Z">
         <source main="main">https://github.com/mittim88/TCHelper/raw/d094e6308e9490f62646b78959e65b8902693de1/Content/TCHelper.lua</source>
