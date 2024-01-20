@@ -2,6 +2,7 @@
 
 
 ----------------- Send
+-- Thanks Mavriq
 -- Thanks CF ❤️
 function align(size)
     local remain = size % 4
