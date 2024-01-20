@@ -1,5 +1,5 @@
 -- @author mittim88
--- @provides osc.lua
+-- @provides /Content/osc.lua
 -- @version 2.5.1
 
 
