@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="TCHelper"/>
-
-<metadata>
-<version name="2.5.1" author="mittim88">
+<index version="1" name="TCHelper" commit="d094e6308e9490f62646b78959e65b8902693de1">
+  <category name="Content">
+    <reapack name="TCHelper.lua" type="script">
+      <version name="2.5.1" time="2024-01-19T13:35:10Z">
+        <source main="main">https://github.com/mittim88/TCHelper/raw/d094e6308e9490f62646b78959e65b8902693de1/Content/TCHelper.lua</source>
       </version>
-</metadata>
+    </reapack>
+  </category>
+</index>
