@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" commit="623fd2bc0090ed47406ae1a8614de294a8a53b69" name="mittim88_Reaper_Repository">
+<index version="1" commit="623fd2bc0090ed47406ae1a8614de294a8a53b69" name="mittim88 Reaper Scripts">
   <category name="TC_Helper">
     <reapack name="TCHelper.lua" type="script" desc="TCHelper">
       <version name="2.5.1" author="mittim88" time="2024-01-21T08:30:10Z">
