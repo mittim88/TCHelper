@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" commit="42fd0c6af541953a12ec53800460952397292b26" name="TCHelper">
-  <category name="Content">
+<index version="1" commit="3b7548eed858770ad14af8f87cc018e0d9926c81" name="TCHelper">
+  <category name="TC Helper">
     <reapack name="TCHelper.lua" type="script" desc="TCHelper">
-      <version name="2.5.1" time="2024-01-19T13:35:10Z">
-        <source main="main">https://github.com/mittim88/TCHelper/raw/d094e6308e9490f62646b78959e65b8902693de1/Content/TCHelper.lua</source>
+      <version name="2.5.1" author="mittim88" time="2024-01-21T07:38:37Z">
+        <source main="main">https://github.com/mittim88/TCHelper/raw/3b7548eed858770ad14af8f87cc018e0d9926c81/TC%20Helper/TCHelper.lua</source>
       </version>
     </reapack>
   </category>
