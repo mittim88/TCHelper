@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" commit="3b7548eed858770ad14af8f87cc018e0d9926c81" name="TCHelper">
+<index version="1" commit="3b7548eed858770ad14af8f87cc018e0d9926c81">
   <category name="TC Helper">
     <reapack name="TCHelper.lua" type="script" desc="TCHelper">
       <version name="2.5.1" author="mittim88" time="2024-01-21T07:38:37Z">
