@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="TCHelper" commit="a33967448781d6f22caec72b5985d78af5981e6c">
+<index version="1" name="TCHelper" commit="a0fb4f94908f4ae0d5c42a23cba3a597b1eea373">
   <category name="Content">
     <reapack name="TCHelper.lua" type="script">
       <version name="2.5.1" time="2024-01-19T13:35:10Z">
