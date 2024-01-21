@@ -1,8 +1,7 @@
 -- @description TCHelper
 -- @version 2.5.1
 -- @author mittim88
--- @provides 
----        /Content/*.lua
+-- @provides /Content/*.lua
 local version = '2.5.1'
 local testcmd = 'Echo --CONNECTION IS FINE--'
 local script_title = 'TC HELPER'
