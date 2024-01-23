@@ -163,7 +163,7 @@ local ctx = 'empty'
 local sans_serif = 'empty'
 if doStatus == true then
     local foo = lib
-    reaper.ShowConsoleMsg('\nGUI Addons vorhanden')
+    --reaper.ShowConsoleMsg('\nGUI Addons vorhanden')
     dofile(reaper.GetResourcePath() ..
     '/Scripts/ReaTeam Extensions/API/imgui.lua')('0.8')
     ctx = reaper.ImGui_CreateContext(script_title)
@@ -171,16 +171,26 @@ if doStatus == true then
     reaper.ImGui_Attach(ctx, sans_serif)
 else
     addonCheck = false
-    reaper.ShowMessageBox('\nGUI Addon nicht vorhanden', 'Error', 0)
+    reaper.ShowMessageBox('\nMissing GUI Package', 'Error', 0)
 end
 ---------------Für Copy Paste API aus Demo File-------------
 local ImGui = {}
 for name, func in pairs(reaper) do
-  name = name:match('^ImGui_(.+)$')
-  if name then ImGui[name] = func end
+    name = name:match('^ImGui_(.+)$')
+    if name then ImGui[name] = func end
 end
 
+function checkSWS()
+    local version = reaper.CF_GetSWSVersion()
+    if version == nil then
+        reaper.ShowMessageBox('\nSWS Addon nicht vorhanden', 'Error', 0)
+        addonCheck = false
+    end
+    
+end
 
+-----------------------------------------------------------------
+-----------------INSTALLATION STUFF-------------------------------------------------------------
 -----------------------------------------------------------------
 -----------------BACKGROUND STUFF-------------------------------------------------------------
 function replaceSpecialCharacters(inputString)
@@ -1726,6 +1736,7 @@ function sendOSC(hostIP, consolePort, cmd)
     assert(udp:sendto(msg, host, port))
 end
 local dock = -1
+checkSWS()
 InitiateSendedData()
 getTrackContent()
 checkSendedData()
