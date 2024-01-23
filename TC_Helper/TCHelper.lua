@@ -5,6 +5,7 @@
 --   /TC_Helper/*.lua
 
 
+
 local version = '2.5.1'
 local testcmd = 'Echo --CONNECTION IS FINE--'
 local script_title = 'TC HELPER'
@@ -75,7 +76,7 @@ local inputHH = 0
 local inputMM = 0
 local inputSS = 0
 local inputFF = 0
-
+local Color = {}
 ------Setup SendedData Dummy Table
 function InitiateSendedData()
     local usedTracks = readTrackGUID('used')
@@ -246,10 +247,12 @@ function readTrackGUID(token)
         --reaper.ShowConsoleMsg('\nseleceted')
         local selectedTrack = reaper.GetSelectedTrack(0, 0)
         if selectedTrack ~= nil then
+
             local loadedGUID = reaper.GetTrackGUID(selectedTrack)
             trackGUID[1] = loadedGUID
         else
             if track1 ~= nil then
+                noTrackError()
                 local track1 = reaper.GetTrack(0, 0)
                 local loadedGUID = reaper.GetTrackGUID(track1)
                 trackGUID[1] = loadedGUID
@@ -429,7 +432,10 @@ function checkIfTrackSelected()
     end
     return anyTrackSelected
 end
---COUNT ITEMS IN SELECTED TRACK
+function Color.HSV(h, s, v, a)
+    local r, g, b = ImGui.ColorConvertHSVtoRGB(h, s, v)
+    return ImGui.ColorConvertDouble4ToU32(r, g, b, a or 1.0)
+  end
 function getItemCount()
     local selectedTrack = 'noTrack'
     selectedTrack = reaper.GetSelectedTrack(0, 0)
@@ -557,6 +563,12 @@ function selectToolall()
         end
     end
 end
+function noTrackError()
+    local selected_trk = reaper.GetSelectedTrack(0, 0)
+    if selected_trk == nil then
+        reaper.ShowMessageBox("No Track selected", "Error", 0)
+    end    
+end
 -----------------GUI WINDOW MAIN-------------------------------------------------------------
 local old_trackcount = -1
 local function TCHelper_Window()
@@ -638,24 +650,36 @@ function testWindow()
     end
 
 ---------------Live Update CheckBox---------------------------------------------------------------
-if reaper.ImGui_Button(ctx, 'OVERWRITE TO CONSOLE', 220, 70) then
-    renumberItems()
-    getTrackContent()
-    InitiateSendedData()
-    local OscCommands = setOSCcommand()
-    sendToConsole(hostIP, consolePort, OscCommands)
-    reaper.ImGui_SameLine(ctx)
-
-end
-if ImGui.IsItemHovered(ctx) then
-    ImGui.SetTooltip(ctx, 'ATTENTION!! \nBUTTON OVERWRITES EXISTING CONTENT ON CONSOLE!!!!')
-  end
+ImGui.PushID(ctx, 1)
+    ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
+    if reaper.ImGui_Button(ctx, 'OVERWRITE TO CONSOLE', 220, 70) then
+        renumberItems()
+        getTrackContent()
+        InitiateSendedData()
+        local OscCommands = setOSCcommand()
+        sendToConsole(hostIP, consolePort, OscCommands)
+        reaper.ImGui_SameLine(ctx)
+    
+    end
+    if ImGui.IsItemHovered(ctx) then
+        ImGui.SetTooltip(ctx, 'ATTENTION!! \nBUTTON OVERWRITES EXISTING CONTENT ON CONSOLE!!!!')
+      end
+ 
+    
+    ImGui.PopStyleColor(ctx, 3)
+    ImGui.PopID(ctx)
 ---------------Send to Console Button---------------------------------------------------------------
 reaper.ImGui_SetCursorPos(ctx, 500, 35)
 rv,liveupdatebox = ImGui.Checkbox(ctx, 'Live Update to Console', liveupdatebox)
+reaper.ImGui_SetCursorPos(ctx, 500, 70)
+ImGui.Text(ctx, 'Made by Tim Eschert\ncontact:\ne-mail: timeschert@yahoo.de')
 
 reaper.ImGui_SetCursorPos(ctx, 800, 10)
 ImGui.Text(ctx, 'TC Helper version: '..version)
+
+
     ---------------Single Update Button---------------------------------------------------------------
     --[[ reaper.ImGui_SetCursorPos(ctx, 300, 190)
     if reaper.ImGui_Button(ctx, 'Load Project', 100, 50) then
@@ -768,19 +792,19 @@ function CueListSetupWindow()
     reaper.ImGui_SetCursorPos(ctx, 500, 59)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, seqID = reaper.ImGui_InputText(ctx, 'Sequence ID', seqID)
-    ---------------Input Page Number---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 500, 84)
-    reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
-    rv, pageID = reaper.ImGui_InputText(ctx, 'Page Number', pageID)
-    ---------------Input Executor ID ---------------------------------------------------------------
-    reaper.ImGui_SetCursorPos(ctx, 500, 109)
-    reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
-    rv, execID = reaper.ImGui_InputText(ctx, 'Executor ID', execID)
-    ---------------Input TimecodeID---------------------------------------------------------------
-    reaper.ImGui_SetCursorPos(ctx, 500, 134)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, tcID = reaper.ImGui_InputText(ctx, 'Timecode ID', tcID)
     ---------------BUTTON---------------------------------------------------------------
+    ---------------Input Page Number---------------------------------------------------------------
+    -- reaper.ImGui_SetCursorPos(ctx, 500, 134)
+    -- reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
+    -- rv, pageID = reaper.ImGui_InputText(ctx, 'Page Number', pageID)
+    -- ---------------Input Executor ID ---------------------------------------------------------------
+    -- reaper.ImGui_SetCursorPos(ctx, 500, 109)
+    -- reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
+    -- rv, execID = reaper.ImGui_InputText(ctx, 'Executor ID', execID)
+    ---------------Input TimecodeID---------------------------------------------------------------
     ---------------Add Item Button---------------------------------------------------------------
 
     reaper.ImGui_SetCursorPos(ctx, buttonX, buttonY)
@@ -789,10 +813,18 @@ function CueListSetupWindow()
         reaper.ImGui_SameLine(ctx)
     end
     reaper.ImGui_SetCursorPos(ctx, buttonX+buttonWidth+buttonSpace, buttonY)
+    
+    ImGui.PushID(ctx, 1)
+    ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
     if reaper.ImGui_Button(ctx, '  Delete\nTC Track', buttonWidth, buttonHeight) then
         deleteTrack()
         reaper.ImGui_SameLine(ctx)
     end
+    ImGui.PopStyleColor(ctx, 3)
+    ImGui.PopID(ctx)
+
     
 
 
@@ -847,10 +879,18 @@ function CueItemWindow()
     end 
     ---------------Delete Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 610, 60)
+
+    ImGui.PushID(ctx, 1)
+    ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
+ 
     if reaper.ImGui_Button(ctx, '  Delete\nSelection', 100, 80) then
         deleteSelection()
         reaper.ImGui_SameLine(ctx)
     end 
+    ImGui.PopStyleColor(ctx, 3)
+    ImGui.PopID(ctx)
 end
 function TempItemWindow()
     ImGui.SeparatorText(ctx, 'SETUP EVENT')
@@ -872,10 +912,18 @@ function TempItemWindow()
     end
     ---------------Delete Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 660, 60)
+    ImGui.PushID(ctx, 1)
+    ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
     if reaper.ImGui_Button(ctx, '  Delete\nSelection', 100, 80) then
         deleteSelection()
         reaper.ImGui_SameLine(ctx)
     end 
+ 
+    
+    ImGui.PopStyleColor(ctx, 3)
+    ImGui.PopID(ctx)
 end
 ---------------ADD Track -------------------------------------------------------------------
 function addTrack()
@@ -1028,9 +1076,10 @@ end
 ---------------ADD Item --------------------------------------------------------------------
 function addItem()
     getTrackContent()
+    noTrackError()
     local retval
     local selected_trk = reaper.GetSelectedTrack(0, 0)
-    local trackGUID = reaper.GetTrackGUID(selected_trk)
+    local trackGUID = readTrackGUID('selected')
     local playPos = reaper.GetPlayPosition()
     local cursorpos = reaper.GetCursorPosition()
     local media_item = nil
