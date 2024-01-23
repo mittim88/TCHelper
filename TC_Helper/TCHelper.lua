@@ -77,6 +77,8 @@ local inputMM = 0
 local inputSS = 0
 local inputFF = 0
 local Color = {}
+
+local addonCheck = true
 ------Setup SendedData Dummy Table
 function InitiateSendedData()
     local usedTracks = readTrackGUID('used')
@@ -150,24 +152,33 @@ local reqStatus ,lib = pcall(require, 'socket.core')
 if reqStatus == true then
     socket = lib
 else
+    addonCheck = false
     reaper.ShowMessageBox("Missing Mavriq Lua Sockets\n Install it with Reapack:\nhttps://raw.githubusercontent.com/mavriq-dev/public-reascripts/master/index.xml", "Error", 0)
 end
 
 dofile(script_path .. '/osc.lua') -- Load OSC Functions made over LuaSockets for send/Receive OSC
 ----------------SETUP GUI-----------------------------------------------------------------------------------------------
-dofile(reaper.GetResourcePath() ..
-  '/Scripts/ReaTeam Extensions/API/imgui.lua')('0.8')
-
-local ctx = reaper.ImGui_CreateContext(script_title)
-local sans_serif = reaper.ImGui_CreateFont('sans-serif', 16)
+local doStatus , lib = pcall(dofile, reaper.GetResourcePath()..'/Scripts/ReaTeam Extensions/API/imgui.lua')
+local ctx = 'empty'
+local sans_serif = 'empty'
+if doStatus == true then
+    local foo = lib
+    reaper.ShowConsoleMsg('\nGUI Addons vorhanden')
+    dofile(reaper.GetResourcePath() ..
+    '/Scripts/ReaTeam Extensions/API/imgui.lua')('0.8')
+    ctx = reaper.ImGui_CreateContext(script_title)
+    sans_serif = reaper.ImGui_CreateFont('sans-serif', 16)
+    reaper.ImGui_Attach(ctx, sans_serif)
+else
+    addonCheck = false
+    reaper.ShowMessageBox('\nGUI Addon nicht vorhanden', 'Error', 0)
+end
 ---------------Für Copy Paste API aus Demo File-------------
-reaper.ImGui_Attach(ctx, sans_serif)
 local ImGui = {}
 for name, func in pairs(reaper) do
   name = name:match('^ImGui_(.+)$')
   if name then ImGui[name] = func end
 end
-
 
 
 -----------------------------------------------------------------
@@ -1718,39 +1729,43 @@ local dock = -1
 InitiateSendedData()
 getTrackContent()
 checkSendedData()
+
 local function loop()
-    renumberItems()
-  if liveupdatebox == true then --LIVE UPDATE IM LOOP AKTIVIERT
-    if loadProjectMarker == false then
-      sendedData = copy3(loadedtracks)
-      loadProjectMarker = true
-    end
-    checkItemStatus()
-    local OscCommands = setOSCcommand()
-    sendToConsole(hostIP, consolePort, OscCommands)
-  end
-    --reaper.ShowConsoleMsg('\n'..inputCueName)
-    --getTrackContent()
-    snapCursorToSelection()
-    cueCount = getItemCount()
-    getCursorPosition()
-    getSelectedOption()
-    reaper.ImGui_PushFont(ctx, sans_serif)
-    reaper.ImGui_SetNextWindowSize(ctx, 400, 80, reaper.ImGui_Cond_FirstUseEver())
-    ---------- DOCK
-    if dock then
-        reaper.ImGui_SetNextWindowDockID(ctx, dock)
-        dock = nil
-    end
-    ---------- DOCK
-    local visible, open = reaper.ImGui_Begin(ctx, script_title, true)
-    if visible then
-        TCHelper_Window()
-        reaper.ImGui_End(ctx)
-    end
-    reaper.ImGui_PopFont(ctx)
-    if open then
-        reaper.defer(loop)
+    if addonCheck == true then
+        renumberItems()
+        if liveupdatebox == true then --LIVE UPDATE IM LOOP AKTIVIERT
+            if loadProjectMarker == false then
+                sendedData = copy3(loadedtracks)
+                loadProjectMarker = true
+            end
+            checkItemStatus()
+            local OscCommands = setOSCcommand()
+            sendToConsole(hostIP, consolePort, OscCommands)
+        end
+        --reaper.ShowConsoleMsg('\n'..inputCueName)
+        --getTrackContent()
+        snapCursorToSelection()
+        cueCount = getItemCount()
+        getCursorPosition()
+        getSelectedOption()
+        reaper.ImGui_PushFont(ctx, sans_serif)
+        reaper.ImGui_SetNextWindowSize(ctx, 400, 80, reaper.ImGui_Cond_FirstUseEver())
+        ---------- DOCK
+        if dock then
+            reaper.ImGui_SetNextWindowDockID(ctx, dock)
+            dock = nil
+        end
+        ---------- DOCK
+        local visible, open = reaper.ImGui_Begin(ctx, script_title, true)
+        if visible then
+            TCHelper_Window()
+            reaper.ImGui_End(ctx)
+        end
+        reaper.ImGui_PopFont(ctx)
+        if open then
+            reaper.defer(loop)
+        end
+        
     end
 end
 reaper.defer(loop)
