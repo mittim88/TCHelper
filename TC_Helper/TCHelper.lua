@@ -126,7 +126,9 @@ end
 ---------------OSC--------------------------------------------------------------------
 ---------------DEFINE OSC TOOLS--------------------------------------------------------------------
 local info = debug.getinfo(1, 'S');
+
 local script_path = info.source:match [[^@?(.*[\/])[^\/]-$]];
+
 package.cpath = package.cpath ..
     ";" ..
     reaper.GetResourcePath() ..
@@ -137,12 +139,20 @@ package.cpath = package.cpath ..
     '/Scripts/Mavriq ReaScript Repository/Various/Mavriq-Lua-Sockets/?.so' -- Add current folder/socket module for looking at .so
 package.path = package.path ..
     ";" .. reaper.GetResourcePath() .. '/Scripts/Mavriq ReaScript Repository/Various/Mavriq-Lua-Sockets/?.lua'
-function print(val)
-  reaper.ShowConsoleMsg(tostring(val) .. '\n')
-end
+-- function print(val)
+
+--   reaper.ShowConsoleMsg(tostring(val) .. '\n')
+-- end
 
 -- load namespace
-local socket = require('socket.core')
+local socket = {}
+local reqStatus ,lib = pcall(require, 'socket.core')
+if reqStatus == true then
+    socket = lib
+else
+    reaper.ShowMessageBox("Missing Mavriq Lua Sockets\n Install it with Reapack:\nhttps://raw.githubusercontent.com/mavriq-dev/public-reascripts/master/index.xml", "Error", 0)
+end
+
 dofile(script_path .. '/osc.lua') -- Load OSC Functions made over LuaSockets for send/Receive OSC
 ----------------SETUP GUI-----------------------------------------------------------------------------------------------
 dofile(reaper.GetResourcePath() ..
