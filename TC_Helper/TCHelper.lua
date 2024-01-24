@@ -183,7 +183,7 @@ end
 function checkSWS()
     local version = reaper.CF_GetSWSVersion()
     if version == nil then
-        reaper.ShowMessageBox('\nSWS Addon nicht vorhanden', 'Error', 0)
+        reaper.ShowMessageBox('\nSWS Addon not installed\nPlease Install SWS Extenstions:\nhttps://www.sws-extension.org', 'Error', 0)
         addonCheck = false
     end
     
