@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" commit="623fd2bc0090ed47406ae1a8614de294a8a53b69" name="mittim88 Reaper Scripts">
+<index version="1" commit="8ab266adcefe9ad7fc625ce1dce1f40189f6eadf" name="mittim88 Reaper Scripts">
   <category name="TC_Helper">
     <reapack name="TCHelper.lua" type="script" desc="TCHelper">
       <version name="2.5.1" author="mittim88" time="2024-01-21T08:30:10Z">
         <source main="main">https://github.com/mittim88/TCHelper/raw/623fd2bc0090ed47406ae1a8614de294a8a53b69/TC_Helper/TCHelper.lua</source>
         <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/623fd2bc0090ed47406ae1a8614de294a8a53b69/TC_Helper/osc.lua</source>
+      </version>
+      <version name="2.5.2" author="mittim88" time="2024-01-24T14:29:16Z">
+        <source main="main">https://github.com/mittim88/TCHelper/raw/8ab266adcefe9ad7fc625ce1dce1f40189f6eadf/TC_Helper/TCHelper.lua</source>
+        <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/8ab266adcefe9ad7fc625ce1dce1f40189f6eadf/TC_Helper/osc.lua</source>
       </version>
     </reapack>
   </category>
