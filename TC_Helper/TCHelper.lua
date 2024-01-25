@@ -6,7 +6,7 @@
 
 
 
-local version = '2.5.2'
+local version = '2.5.3'
 local testcmd = 'Echo --CONNECTION IS FINE--'
 local script_title = 'TC HELPER'
 local hostIP = '127.0.0.1'
