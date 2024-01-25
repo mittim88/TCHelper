@@ -1,17 +1,18 @@
 -- @description TCHelper
--- @version 2.5.3
+-- @version 2.6.0
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
 
 
 
-local version = '2.5.3'
+local version = '2.6.0'
 local testcmd = 'Echo --CONNECTION IS FINE--'
 local script_title = 'TC HELPER'
-local hostIP = '127.0.0.1'
-local prefix = 'reaper'
-local consolePort = '8000'
+local hostIP = reaper.GetExtState('network','ip')
+
+local prefix = reaper.GetExtState('network','prefix')
+local consolePort = reaper.GetExtState('network','port')
 
 local cueListName = 'Test Cuelist'
 local pageID = 11
@@ -20,7 +21,7 @@ local seqIDBasis = 1001---HIER DEN EIGENEN STANDARD WERT EINSTELLEN
 local execID = 301
 local tcID = 1
 local fadetime = 2
-local datapoolName = 'Default'
+local datapoolName = reaper.GetExtState('basic','dataPoolName')
 local holdtime = '1.0'
 local inputCueName = 'empty'
 local cueNr = 1
@@ -41,8 +42,10 @@ local eventTime = '00:00:00:00'
 local cursor = 0
 local selectedOption = 'empty'
 local liveupdatebox = false
+local internalLoopBox = false
 local snapCursorbox = false
 local loadProjectMarker = false
+local dummyIPstring = '--Enter Console IP--'
 local tracks = {}
 local loadedtracks = {}
 local sendedData = {}
@@ -518,6 +521,16 @@ function getFirstTouchedMediaItem()
     end
     return nil -- No touched items found
 end
+-- function setIPAdress()
+--     local ipOld = reaper.GetExtState('network','ip')
+--     if internalLoopBox == true then
+        
+--         hostIP = '127.0.0.1'
+--     else
+--         hostIP = ipOld
+--         return
+--     end
+-- end
 -----------------------------------------------------------------
 ---SELECTION TOOLS
 function snapCursorToSelection()
@@ -612,7 +625,7 @@ local function TCHelper_Window()
                 if old_trackcount ~= #usedTracks then
                     cueListName = 'Cue List '..#usedTracks + 1
                     seqID = seqIDBasis + #usedTracks
-
+                    
                     old_trackcount = #usedTracks
                 end
             elseif cursor == 1 then
@@ -623,12 +636,12 @@ local function TCHelper_Window()
                         inputCueName = 'Cue - ' .. itemcount + 1
                         cueNr = itemcount + 1
                         --reaper.ShowConsoleMsg('\n'..selectedOption)
-            
+                        
                     else
                         inputCueName = 'Cue - ' ..1
                         cueNr = 1
                         --reaper.ShowConsoleMsg('\n'..selectedOption)
-          
+                        
                     end
                     old_track = selectedTrack
                     old_itemcount = itemcount
@@ -639,14 +652,14 @@ local function TCHelper_Window()
                     TempItemWindow()
                 end
             end
-
+            
             ImGui.EndTabItem(ctx)
         end
         if ImGui.BeginTabItem(ctx, 'Tools') then
             ToolsWindow()
             ImGui.EndTabItem(ctx)
         end
-        if ImGui.BeginTabItem(ctx, 'Connection') then
+        if ImGui.BeginTabItem(ctx, 'Connection',0,0) then
             testWindow()
             ImGui.EndTabItem(ctx)
         end
@@ -657,9 +670,21 @@ local rv
 function testWindow()
     ---------------INPUTS---------------------------------------------------------------
     ---------------Input IP---------------------------------------------------------------
-    reaper.ImGui_SetNextItemWidth(ctx, 250)
-    rv, hostIP = reaper.ImGui_InputText(ctx, 'Host IP', hostIP)
-    
+    if internalLoopBox == true then
+        reaper.ImGui_SetNextItemWidth(ctx, 250)
+        rv, hostIP = reaper.ImGui_InputText(ctx, 'Host IP', '127.0.0.1')
+    else
+        reaper.ImGui_SetNextItemWidth(ctx, 250)
+        -- local ipOld = reaper.GetExtState('network','ip')
+        -- hostIP = ipOld
+        rv, hostIP = reaper.ImGui_InputText(ctx, 'Host IP', hostIP)
+        
+        
+    end
+
+    reaper.ImGui_SameLine(ctx)
+    rv,internalLoopBox = ImGui.Checkbox(ctx, 'Internal Loopback', internalLoopBox)
+
     ---------------Input Port---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
     rv, consolePort = reaper.ImGui_InputText(ctx, 'Port', consolePort)
@@ -675,24 +700,46 @@ function testWindow()
     rv, testcmd = reaper.ImGui_InputText(ctx, 'Test Command', testcmd)
     ---------------BUTTON---------------------------------------------------------------
     ---------------Test Button---------------------------------------------------------------
-    if reaper.ImGui_Button(ctx, 'TEST CONNECTION', 220, 50) then
+
+    if reaper.ImGui_Button(ctx, '          Save\nNetwork Config', 121, 50) then
+        reaper.SetExtState('network','ip',hostIP,true)
+        reaper.SetExtState('network','port',consolePort,true)
+        reaper.SetExtState('network','prefix',prefix,true)
+        reaper.SetExtState('basic','dataPoolName',datapoolName,true)
+    end
+    reaper.ImGui_SameLine(ctx)
+    if reaper.ImGui_Button(ctx, '          Load\nNetwork Config', 121, 50) then
+        hostIP = reaper.GetExtState('network','ip')
+        consolePort = reaper.GetExtState('network','port')
+        prefix = reaper.GetExtState('network','prefix')
+        datapoolName = reaper.GetExtState('basic','dataPoolName')
+    end
+    reaper.ImGui_SameLine(ctx)
+    if reaper.ImGui_Button(ctx, ' Reset\nConfig', 120, 50) then
+        hostIP = dummyIPstring
+        consolePort = '8000'
+        prefix = 'reaper'
+        datapoolName = 'default'
+        reaper.SetExtState('network','ip',hostIP,true)
+        reaper.SetExtState('network','port',consolePort,true)
+        reaper.SetExtState('network','prefix',prefix,true)
+        reaper.SetExtState('basic','dataPoolName',datapoolName,true)
+    end
+    reaper.ImGui_SameLine(ctx)
+    if reaper.ImGui_Button(ctx, '      Test\nConnection', 120, 50) then
         sendOSC(hostIP, consolePort, testcmd)
-        reaper.ImGui_SameLine(ctx)
     end
 
----------------Live Update CheckBox---------------------------------------------------------------
 ImGui.PushID(ctx, 1)
     ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
-    if reaper.ImGui_Button(ctx, 'OVERWRITE TO CONSOLE', 220, 70) then
+    if reaper.ImGui_Button(ctx, 'OVERWRITE TO CONSOLE', 250, 70) then
         renumberItems()
         getTrackContent()
         InitiateSendedData()
         local OscCommands = setOSCcommand()
         sendToConsole(hostIP, consolePort, OscCommands)
-        reaper.ImGui_SameLine(ctx)
-    
     end
     if ImGui.IsItemHovered(ctx) then
         ImGui.SetTooltip(ctx, 'ATTENTION!! \nBUTTON OVERWRITES EXISTING CONTENT ON CONSOLE!!!!')
@@ -701,7 +748,6 @@ ImGui.PushID(ctx, 1)
     
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
----------------Send to Console Button---------------------------------------------------------------
 reaper.ImGui_SetCursorPos(ctx, 500, 35)
 rv,liveupdatebox = ImGui.Checkbox(ctx, 'Live Update to Console', liveupdatebox)
 reaper.ImGui_SetCursorPos(ctx, 500, 70)
@@ -1729,11 +1775,15 @@ function sendOSC(hostIP, consolePort, cmd)
 
     -- Send message
     -- change here to the host an port you want to contact
-    local host, port = hostIP, consolePort
-    -- create a new UDP object
-    local udp = assert(socket.udp())
-    -- contact daytime host
-    assert(udp:sendto(msg, host, port))
+    if hostIP ~= dummyIPstring then
+        local host, port = hostIP, consolePort
+        -- create a new UDP object
+        local udp = assert(socket.udp())
+        -- contact daytime host
+        assert(udp:sendto(msg, host, port))
+    else
+        reaper.ShowMessageBox('\nPlease enter correct IP Adress', 'Error', 0)
+    end
 end
 local dock = -1
 checkSWS()
@@ -1744,6 +1794,7 @@ checkSendedData()
 local function loop()
     if addonCheck == true then
         renumberItems()
+        --setIPAdress()
         if liveupdatebox == true then --LIVE UPDATE IM LOOP AKTIVIERT
             if loadProjectMarker == false then
                 sendedData = copy3(loadedtracks)
