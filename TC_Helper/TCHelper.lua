@@ -1,12 +1,12 @@
 -- @description TCHelper
--- @version 2.6.0
+-- @version 2.6.1
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
 
 
 
-local version = '2.6.0'
+local version = '2.6.1'
 local testcmd = 'Echo --CONNECTION IS FINE--'
 local script_title = 'TC HELPER'
 local hostIP = reaper.GetExtState('network','ip')
@@ -42,7 +42,6 @@ local eventTime = '00:00:00:00'
 local cursor = 0
 local selectedOption = 'empty'
 local liveupdatebox = false
-local internalLoopBox = false
 local snapCursorbox = false
 local loadProjectMarker = false
 local dummyIPstring = '--Enter Console IP--'
@@ -80,7 +79,7 @@ local inputMM = 0
 local inputSS = 0
 local inputFF = 0
 local Color = {}
-
+local loopback = false
 local addonCheck = true
 ------Setup SendedData Dummy Table
 function InitiateSendedData()
@@ -484,6 +483,7 @@ function getLongestTrackTime()
     local longestLength = reaper.GetProjectLength(0)
     return longestLength
 end
+
 function copy3(obj, seen)
 
     -- Handle non-tables and previously-seen tables.
@@ -521,16 +521,6 @@ function getFirstTouchedMediaItem()
     end
     return nil -- No touched items found
 end
--- function setIPAdress()
---     local ipOld = reaper.GetExtState('network','ip')
---     if internalLoopBox == true then
-        
---         hostIP = '127.0.0.1'
---     else
---         hostIP = ipOld
---         return
---     end
--- end
 -----------------------------------------------------------------
 ---SELECTION TOOLS
 function snapCursorToSelection()
@@ -670,20 +660,12 @@ local rv
 function testWindow()
     ---------------INPUTS---------------------------------------------------------------
     ---------------Input IP---------------------------------------------------------------
-    if internalLoopBox == true then
         reaper.ImGui_SetNextItemWidth(ctx, 250)
-        rv, hostIP = reaper.ImGui_InputText(ctx, 'Host IP', '127.0.0.1')
-    else
-        reaper.ImGui_SetNextItemWidth(ctx, 250)
-        -- local ipOld = reaper.GetExtState('network','ip')
-        -- hostIP = ipOld
+
         rv, hostIP = reaper.ImGui_InputText(ctx, 'Host IP', hostIP)
         
-        
-    end
 
-    reaper.ImGui_SameLine(ctx)
-    rv,internalLoopBox = ImGui.Checkbox(ctx, 'Internal Loopback', internalLoopBox)
+    
 
     ---------------Input Port---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
@@ -715,7 +697,7 @@ function testWindow()
         datapoolName = reaper.GetExtState('basic','dataPoolName')
     end
     reaper.ImGui_SameLine(ctx)
-    if reaper.ImGui_Button(ctx, ' Reset\nConfig', 120, 50) then
+    if reaper.ImGui_Button(ctx, ' Reset\nConfig', 121, 50) then
         hostIP = dummyIPstring
         consolePort = '8000'
         prefix = 'reaper'
@@ -726,11 +708,11 @@ function testWindow()
         reaper.SetExtState('basic','dataPoolName',datapoolName,true)
     end
     reaper.ImGui_SameLine(ctx)
-    if reaper.ImGui_Button(ctx, '      Test\nConnection', 120, 50) then
+    if reaper.ImGui_Button(ctx, '      Test\nConnection', 121, 50) then
         sendOSC(hostIP, consolePort, testcmd)
     end
-
-ImGui.PushID(ctx, 1)
+    
+    ImGui.PushID(ctx, 1)
     ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
@@ -743,14 +725,39 @@ ImGui.PushID(ctx, 1)
     end
     if ImGui.IsItemHovered(ctx) then
         ImGui.SetTooltip(ctx, 'ATTENTION!! \nBUTTON OVERWRITES EXISTING CONTENT ON CONSOLE!!!!')
-      end
- 
-    
+    end
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
-reaper.ImGui_SetCursorPos(ctx, 500, 35)
+    reaper.ImGui_SameLine(ctx)
+    if loopback == false then
+        ImGui.PushID(ctx, 1)
+        ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
+        ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.5, 1.0))
+        ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 0,5, 1.0))
+        if reaper.ImGui_Button(ctx, '    Connect to \nGrandMA3 OnPC', 250, 70) then
+            hostIP = '127.0.0.1'
+            loopback = true
+        end
+        ImGui.PopStyleColor(ctx, 3)
+        ImGui.PopID(ctx)
+    else
+        ImGui.PushID(ctx, 1)
+        ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 3, 1, 0.3, 1.0))
+        ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 3, 1, 0.5, 1.0))
+        ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 3, 1, 0.5, 1.0))
+        if reaper.ImGui_Button(ctx, '    Connected to \nGrandMA3 OnPC', 250, 70) then
+            local ipOld = reaper.GetExtState('network','ip')
+            hostIP = ipOld
+            loopback = false
+        end
+        ImGui.PopStyleColor(ctx, 3)
+        ImGui.PopID(ctx)
+    end
+    
+    
+    reaper.ImGui_SetCursorPos(ctx, 500, 35)
 rv,liveupdatebox = ImGui.Checkbox(ctx, 'Live Update to Console', liveupdatebox)
-reaper.ImGui_SetCursorPos(ctx, 500, 70)
+reaper.ImGui_SetCursorPos(ctx, 800, 35)
 ImGui.Text(ctx, 'Made by Tim Eschert\ncontact:\ne-mail: timeschert@yahoo.de')
 
 reaper.ImGui_SetCursorPos(ctx, 800, 10)
