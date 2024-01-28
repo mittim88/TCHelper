@@ -761,7 +761,7 @@ reaper.ImGui_SetCursorPos(ctx, 800, 35)
 ImGui.Text(ctx, 'Made by Tim Eschert\ncontact:\ne-mail: timeschert@yahoo.de')
 
 reaper.ImGui_SetCursorPos(ctx, 800, 10)
-ImGui.Text(ctx, 'TC Helper version: '..version)
+ImGui.Text(ctx, script_title..' v.'..version)
 
 
     ---------------Single Update Button---------------------------------------------------------------
@@ -859,6 +859,8 @@ function ToolsWindow()
             selectedTrackOption = selOptions[i]
         end
     end
+    reaper.ImGui_SetCursorPos(ctx, 800, 10)
+    ImGui.Text(ctx, script_title)
 end
 function CueListSetupWindow()
     local buttonX = 10
@@ -940,6 +942,8 @@ function CueListSetupWindow()
             selectedBtnOption = btnNames[i]
         end
     end
+    reaper.ImGui_SetCursorPos(ctx, 800, 10)
+    ImGui.Text(ctx, script_title)
 end
 ---------------ADD CUE WINDOW---------------------------------------------------------------
 function CueItemWindow()
@@ -975,6 +979,8 @@ function CueItemWindow()
     end 
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
+    reaper.ImGui_SetCursorPos(ctx, 800, 10)
+    ImGui.Text(ctx, 'TC Helper version: '..version)
 end
 function TempItemWindow()
     ImGui.SeparatorText(ctx, 'SETUP EVENT')
@@ -1008,6 +1014,8 @@ function TempItemWindow()
     
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
+    reaper.ImGui_SetCursorPos(ctx, 800, 10)
+    ImGui.Text(ctx, script_title)
 end
 ---------------ADD Track -------------------------------------------------------------------
 function addTrack()
