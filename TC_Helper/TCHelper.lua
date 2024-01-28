@@ -1,12 +1,12 @@
 -- @description TCHelper
--- @version 2.6.1
+-- @version 2.6.2
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
 
 
 
-local version = '2.6.1'
+local version = '2.6.2'
 local testcmd = 'Echo --CONNECTION IS FINE--'
 local script_title = 'TC HELPER'
 local hostIP = reaper.GetExtState('network','ip')
