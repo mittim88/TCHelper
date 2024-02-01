@@ -1,12 +1,12 @@
 -- @description TCHelper
--- @version 2.7.0
+-- @version 2.7.1
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
 
 
 
-local version = '2.7.0'
+local version = '2.7.1'
 local testcmd = 'Echo --CONNECTION IS FINE--'
 local script_title = 'TC HELPER'
 local hostIP = reaper.GetExtState('network','ip')
@@ -16,10 +16,17 @@ local consolePort = reaper.GetExtState('network','port')
 
 local cueListName = 'Test Cuelist'
 local pageID = 11
-local seqID = 1001
-local seqIDBasis = 1001---HIER DEN EIGENEN STANDARD WERT EINSTELLEN
+local seqID = tonumber(reaper.GetExtState('trackconfig', 'seqId'))
+local seqBase = tonumber(reaper.GetExtState('trackconfig', 'seqId'))
+if seqID == nil then
+    seqID = 1
+    seqBase = 1
+end
 local execID = 301
-local tcID = 1
+local tcID = tonumber(reaper.GetExtState('trackconfig', 'tcId'))
+if tcID == nil then
+    tcID = 1
+end
 local fadetime = 2
 local datapoolName = reaper.GetExtState('basic','dataPoolName')
 local holdtime = '1.0'
@@ -630,7 +637,7 @@ local function TCHelper_Window()
                 local usedTracks = readTrackGUID('used')
                 if old_trackcount ~= #usedTracks then
                     cueListName = 'Cue List '..#usedTracks + 1
-                    seqID = seqIDBasis + #usedTracks
+                    seqID = seqBase + #usedTracks
                     
                     old_trackcount = #usedTracks
                 end
@@ -952,6 +959,14 @@ function CueListSetupWindow()
     reaper.ImGui_SetCursorPos(ctx, 500, 84)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, tcID = reaper.ImGui_InputText(ctx, 'Timecode ID', tcID)
+    reaper.ImGui_SetCursorPos(ctx, 500, 120)
+
+    if reaper.ImGui_Button(ctx, 'Save Track Config', 145, 50) then
+        reaper.SetExtState('trackconfig', 'seqId', seqID , true)
+        reaper.SetExtState('trackconfig', 'tcId', tcID, true)
+
+        reaper.ImGui_SameLine(ctx)
+    end
     ---------------BUTTON---------------------------------------------------------------
     ---------------Input Page Number---------------------------------------------------------------
     -- reaper.ImGui_SetCursorPos(ctx, 500, 134)
@@ -967,6 +982,7 @@ function CueListSetupWindow()
     reaper.ImGui_SetCursorPos(ctx, buttonX, buttonY)
     if reaper.ImGui_Button(ctx, '    Add\nTC Track', buttonWidth, buttonHeight) then
         addTrack()
+
         reaper.ImGui_SameLine(ctx)
     end
     reaper.ImGui_SetCursorPos(ctx, buttonX+buttonWidth+buttonSpace, buttonY)
