@@ -781,7 +781,7 @@ function testWindow()
     reaper.ImGui_SetCursorPos(ctx, 500, 35)
     rv,liveupdatebox = ImGui.Checkbox(ctx, 'Live Update to Console', liveupdatebox)
     reaper.ImGui_SetCursorPos(ctx, 800, 35)
-    ImGui.Text(ctx, 'Made by Tim Eschert\ncontact:\ne-mail: timeschert@yahoo.de')
+    ImGui.Text(ctx, 'LichtWerk\n\nmade by: Tim Eschert\ncontact:\ne-mail: support@lichtwerk.info')
     
     reaper.ImGui_SetCursorPos(ctx, 800, 10)
     ImGui.Text(ctx, script_title..' v.'..version)
