@@ -1,12 +1,12 @@
 -- @description TCHelper
--- @version 2.7.1
+-- @version 2.7.2
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
 
 
 
-local version = '2.7.1'
+local version = '2.7.2'
 local testcmd = 'Echo --CONNECTION IS FINE--'
 local script_title = 'TC HELPER'
 local hostIP = reaper.GetExtState('network','ip')
@@ -416,7 +416,7 @@ function getTrackContent()
                     local itemLength = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
 
 
-                    local fadetime = itemword[iGC][4]:gsub("%D", "")
+                    local fadetime = itemword[iGC][4]:gsub("%D", "") or 0
                     local cueNr = itemword[iGC][3]:gsub("%D", "")
 
                     --loadedtracks[loadedTrackGUID[tGC]].cue[loadedItemGUID[iGC]] = {}
