@@ -1,12 +1,12 @@
 -- @description TCHelper
--- @version 2.7.2
+-- @version 2.8.0
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
 
 
 
-local version = '2.7.2'
+local version = '2.8.0'
 local testcmd = 'Echo --CONNECTION IS FINE--'
 local script_title = 'TC HELPER'
 local hostIP = reaper.GetExtState('network','ip')
@@ -89,6 +89,7 @@ local Color = {}
 local loopback = false
 local addonCheck = true
 local NewCueNames = {}
+local NewFadeTimes = {}
 ------Setup SendedData Dummy Table
 function InitiateSendedData()
     local usedTracks = readTrackGUID('used')
@@ -544,6 +545,26 @@ function getCueNames()
     end
     return oldCueName
 end
+function getFadeTimes()
+    local trackID = readTrackGUID('selected')
+    local selectedTrack = 'noTrack'
+    selectedTrack = reaper.GetSelectedTrack(0, 0)
+    local itemCount = 0
+    local cueGUIDs = 'empty'
+
+    if selectedTrack == nil then
+        itemCount = 0
+    else
+        itemCount = reaper.CountTrackMediaItems(selectedTrack)
+        cueGUIDs = readItemGUID(trackID)
+    end
+    local oldFadeTime = {}
+    for i = 1, itemCount, 1 do
+        oldFadeTime[i] = loadedtracks[trackID].cue[cueGUIDs[i]].fadetime
+        --reaper.ShowConsoleMsg(oldFadeTime[i])
+    end
+    return oldFadeTime
+end
 -----------------------------------------------------------------
 ---SELECTION TOOLS
 function snapCursorToSelection()
@@ -795,55 +816,6 @@ function testWindow()
     end ]]
 end
 
------------------RENAMEING CUES WINDOW-------------------------------------------------------------
-function renameCuesWindow()
-    local selTrack = readTrackGUID('selected')
-    if selTrack == nil then
-        reaper.ImGui_Text(ctx, 'NO TRACK SELECTED')
-    else
-        if not app.layout then
-            app.layout = {
-                selected = 0,
-            }
-        end
-        
-        reaper.ImGui_Text(ctx, 'Cuenames:')
-        if ImGui.BeginChild(ctx, 'left pane', 400, 0, true) then
-            for i = 1, #NewCueNames, 1 do
-                rv, NewCueNames[i] = reaper.ImGui_InputText(ctx, 'Cue '..i , NewCueNames[i])
-            end
-            ImGui.EndChild(ctx)
-            
-        end
-        
-        reaper.ImGui_SetCursorPos(ctx, 500, 60)
-        if reaper.ImGui_Button(ctx, 'Rename Cues', 100, 100) then
-            renameItems()
-        end 
-        -- reaper.ImGui_SetCursorPos(ctx, 500, 170)
-        -- if reaper.ImGui_Button(ctx, 'Cancel', 100, 100) then
-         
-        -- end 
-
-        
-    end
-end
-function openCuesWindow()
-
-    ImGui.SetNextWindowSize(ctx, 400, 440, ImGui.Cond_FirstUseEver())
-  local visible,open = ImGui.Begin(ctx, 'Rename Cues', true, ImGui.WindowFlags_MenuBar())
-  if visible then
-    
-    renameCuesWindow()
-    getTrackContent()
-    reaper.ImGui_End(ctx)
-    end
-    if open then
-        reaper.defer(openCuesWindow)
-    end
-    return open
-end
-------------------------------------------------------------------------------
 function ToolsWindow()
     local cursorposition = reaper.GetCursorPosition()
     
@@ -868,7 +840,7 @@ function ToolsWindow()
     reaper.ImGui_SetCursorPos(ctx, timetextX + 180, timetextY)
     ImGui.Text(ctx, 'ff')
     --reaper.ImGui_SameLine(ctx)
-
+    
     reaper.ImGui_SetNextItemWidth(ctx, inputwidth)
     rv1, inputHH = reaper.ImGui_InputTextWithHint(ctx, ' :', 'hh', inputHH)
     reaper.ImGui_SameLine(ctx)
@@ -881,19 +853,20 @@ function ToolsWindow()
     reaper.ImGui_SetNextItemWidth(ctx, inputwidth)
     rv4, inputFF = reaper.ImGui_InputTextWithHint(ctx, 'New Items Time', 'ff', inputFF)
     if reaper.ImGui_Button(ctx, 'Set Item to Time', 200, 50) then
-            hhSeconds = tonumber(inputHH) * 3600
-            mmSeconds = tonumber(inputMM) * 60
-            ssfloat = tonumber(inputSS)
-            ffSeconds = tonumber(inputFF) / (systemFramerate)
+        hhSeconds = tonumber(inputHH) * 3600
+        mmSeconds = tonumber(inputMM) * 60
+        ssfloat = tonumber(inputSS)
+        ffSeconds = tonumber(inputFF) / (systemFramerate)
         local newTime = hhSeconds + mmSeconds + ssfloat + ffSeconds
         moveItem (newTime)
-    
+        
     end
     rv,snapCursorbox = ImGui.Checkbox(ctx, 'Snap Cursor to Item', snapCursorbox)
-    if reaper.ImGui_Button(ctx, 'Rename Cues', 200, 50) then
-            NewCueNames = getCueNames()
-            openCuesWindow()
-    
+    if reaper.ImGui_Button(ctx, 'Cue Data', 200, 50) then
+        NewCueNames = getCueNames()
+        NewFadeTimes = getFadeTimes()
+        openCuesWindow()
+        
     end
     
     reaper.ImGui_SetCursorPos(ctx, 500, 90)
@@ -960,11 +933,11 @@ function CueListSetupWindow()
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, tcID = reaper.ImGui_InputText(ctx, 'Timecode ID', tcID)
     reaper.ImGui_SetCursorPos(ctx, 500, 120)
-
+    
     if reaper.ImGui_Button(ctx, 'Save Track Config', 145, 50) then
         reaper.SetExtState('trackconfig', 'seqId', seqID , true)
         reaper.SetExtState('trackconfig', 'tcId', tcID, true)
-
+        
         reaper.ImGui_SameLine(ctx)
     end
     ---------------BUTTON---------------------------------------------------------------
@@ -978,11 +951,11 @@ function CueListSetupWindow()
     -- rv, execID = reaper.ImGui_InputText(ctx, 'Executor ID', execID)
     ---------------Input TimecodeID---------------------------------------------------------------
     ---------------Add Item Button---------------------------------------------------------------
-
+    
     reaper.ImGui_SetCursorPos(ctx, buttonX, buttonY)
     if reaper.ImGui_Button(ctx, '    Add\nTC Track', buttonWidth, buttonHeight) then
         addTrack()
-
+        
         reaper.ImGui_SameLine(ctx)
     end
     reaper.ImGui_SetCursorPos(ctx, buttonX+buttonWidth+buttonSpace, buttonY)
@@ -997,15 +970,15 @@ function CueListSetupWindow()
     end
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
-
     
-
-
-  ---------------POPUPS---------------------------------------------------------------
-  ---------------Select Exec Option---------------------------------------------------------------
+    
+    
+    
+    ---------------POPUPS---------------------------------------------------------------
+    ---------------Select Exec Option---------------------------------------------------------------
     if not popups.popups then
         popups.popups = {
-        selectedExecOption = 1,
+            selectedExecOption = 1,
         }
     end
     reaper.ImGui_SetCursorPos(ctx, 9, 99)
@@ -1023,7 +996,7 @@ function CueListSetupWindow()
         end
         ImGui.EndPopup(ctx)
     end
-
+    
     for i = 1, #btnNames, 1 do
         if popups.popups.selectedExecOption == i then
             selectedBtnOption = btnNames[i]
@@ -1032,9 +1005,10 @@ function CueListSetupWindow()
     reaper.ImGui_SetCursorPos(ctx, 800, 10)
     ImGui.Text(ctx, script_title)
 end
+------------------------------------------------------------------------------
 ---------------ADD CUE WINDOW---------------------------------------------------------------
 function CueItemWindow()
-
+    
     ImGui.SeparatorText(ctx, 'SETUP EVENT')
     ---------------Input Cuelist Name---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 300)
@@ -1043,9 +1017,9 @@ function CueItemWindow()
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, fadetime = reaper.ImGui_InputText(ctx, 'Fade Time ', fadetime)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
-
+    
     rv, cueNr = reaper.ImGui_InputText(ctx, 'Cue Nr (Will be set automatically)', cueNr)
-
+    
     ---------------Add Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 500, 60)
     if reaper.ImGui_Button(ctx, 'Add Cue', 100, 80) then
@@ -1054,12 +1028,12 @@ function CueItemWindow()
     end 
     ---------------Delete Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 610, 60)
-
+    
     ImGui.PushID(ctx, 1)
     ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
- 
+    
     if reaper.ImGui_Button(ctx, '  Delete\nSelection', 100, 80) then
         deleteSelection()
         reaper.ImGui_SameLine(ctx)
@@ -1097,12 +1071,96 @@ function TempItemWindow()
         deleteSelection()
         reaper.ImGui_SameLine(ctx)
     end 
- 
+    
     
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
     reaper.ImGui_SetCursorPos(ctx, 800, 10)
     ImGui.Text(ctx, script_title)
+end
+-----------------RENAMEING CUES WINDOW-------------------------------------------------------------
+function renameCuesWindow()
+    local spaceBtn = 50
+    local paneWidth = 400
+    
+
+
+    local selTrack = readTrackGUID('selected')
+    if selTrack == nil then
+        reaper.ImGui_Text(ctx, 'NO TRACK SELECTED')
+    else
+        if not app.layout then
+            app.layout = {
+                selected = 0,
+            }
+        end
+        
+        if ImGui.BeginChild(ctx, 'left pane', paneWidth, 0, true) then
+            reaper.ImGui_SetCursorPos(ctx, 50,10)
+            reaper.ImGui_Text(ctx, 'Cuenames')
+            reaper.ImGui_SetCursorPos(ctx,250,10)
+            reaper.ImGui_Text(ctx, 'Fadetimes')
+            local j = 0
+            for i = 1, #NewCueNames, 1 do
+                local cueID
+                if i < 10 then
+                    cueID = string.format('%02d', i)
+                else
+                    cueID = i
+                end
+                ImGui.SetNextItemWidth(ctx, 150)
+                rv, NewCueNames[i] = reaper.ImGui_InputText(ctx, 'Cue-'..cueID, NewCueNames[i])
+                reaper.ImGui_SameLine(ctx)
+                ImGui.SetNextItemWidth(ctx, 50)
+                rv, NewFadeTimes[i] = reaper.ImGui_InputText(ctx, 'Fade-'..cueID, NewFadeTimes[i])
+                reaper.ImGui_SameLine(ctx)
+                
+                
+                if reaper.ImGui_Button(ctx, 'Select '..i, 50,19) then
+                    local trackItem = reaper.BR_GetMediaTrackByGUID( 0, selTrack )
+                    local item = reaper.GetTrackMediaItem(trackItem, j)
+                    local rv, itemGUID = reaper.GetSetMediaItemInfo_String(item, "GUID", "", false)
+                    local newCursorPos = loadedtracks[selTrack].cue[itemGUID].itemStart
+                    setCursorToItem(newCursorPos)
+                    --reaper.ShowConsoleMsg('\n Select: '..itemGUID)
+                end 
+                j = j + 1
+
+
+            end
+            ImGui.EndChild(ctx)
+            
+        end
+        
+        reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
+        if reaper.ImGui_Button(ctx, 'WRITE NEW\n  DATA', 100, 100) then
+            renameItems()
+        end 
+        
+        reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 180)
+        if reaper.ImGui_Button(ctx, 'Reload Data', 100, 100) then
+         --reaper.ShowConsoleMsg('\nLOAD')
+         NewCueNames = getCueNames()
+         NewFadeTimes = getFadeTimes()
+        end 
+
+        
+    end
+end
+function openCuesWindow()
+
+    ImGui.SetNextWindowSize(ctx, 400, 440, ImGui.Cond_FirstUseEver())
+  local visible,open = ImGui.Begin(ctx, 'Cue Data', true, ImGui.WindowFlags_MenuBar())
+  if visible then
+    
+    renameCuesWindow()
+    getTrackContent()
+    reaper.ImGui_End(ctx)
+    end
+    if open then
+        reaper.defer(openCuesWindow)
+    end
+    return open
 end
 ---------------ADD Track -------------------------------------------------------------------
 function addTrack()
@@ -1151,7 +1209,7 @@ function addTrack()
     reaper.GetSetMediaTrackInfo_String(track, 'P_NAME', trackName, true)
     reaper.GetSetMediaTrackInfo_String(track, 'P_ICON', iconPath, true)
     reaper.SetTrackColor(track, reaper.ColorToNative(red, green, blue))
-
+    
     local newTrackGUID = {}
     newTrackGUID = reaper.GetTrackGUID(track)
     tracks[newTrackGUID] = {}
@@ -1167,7 +1225,7 @@ function addTrack()
 end
 function deleteTrack()
     --reaper.ShowConsoleMsg('\nDELETE TRACK START')
-
+    
     local numSelectedTracks = reaper.CountSelectedTracks(0)
     if numSelectedTracks > 0 then
         reaper.PreventUIRefresh(1) -- Disable UI updates to prevent flickering
@@ -1334,6 +1392,7 @@ function renumberItems()
                 local mediaItem = reaper.BR_GetMediaItemByGUID(0, itemGUID[i])
                 rv, name = reaper.GetSetMediaItemInfo_String(mediaItem, "P_NOTES", name, false)
                 for w in string.gmatch(name, "|([^|]+)|") do
+                    --namePart[i] = w or 'not defined'
                     table.insert(namePart[i], w)
                 end
                 
@@ -1391,12 +1450,13 @@ function renameItems()
     end
     local cueFade = {}
     for i = 1, cueAmmount, 1 do
-        cueFade[i] = loadedtracks[trackGUID].cue[cueGUIDs[i]].fadetime
+        --cueFade[i] = loadedtracks[trackGUID].cue[cueGUIDs[i]].fadetime
         mediaItem[i] = reaper.BR_GetMediaItemByGUID(0, cueGUIDs[i])
     end
     for i = 1, cueAmmount, 1 do
             local inputName = replaceSpecialCharacters(NewCueNames[i])
-            itemName = '|' ..inputName..'|\n|' ..loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. i .. '|\n|Fadetime: ' ..cueFade[i] .. '|'
+            local inputFade = NewFadeTimes[i]
+            itemName = '|' ..inputName..'|\n|' ..loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. i .. '|\n|Fadetime: ' ..inputFade .. '|'
 
             reaper.GetSetMediaItemInfo_String(mediaItem[i], "P_NOTES", itemName, true)
     
@@ -1444,6 +1504,9 @@ function moveItem(time)
    
 
         
+end
+function setCursorToItem (itemPos)
+    reaper.SetEditCurPos( itemPos, true, true )
 end
 
 ---------------SEND OSC --------------------------------------------------------------------
