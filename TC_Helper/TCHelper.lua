@@ -82,7 +82,7 @@ dummytrack.cue.holdtime = 'dummyHoldTime'
 dummytrack.cue.itemStart = 'dummyitemStart'
 dummytrack.cue.itemEnd = 'dummyitemEnd'
 local selectedIcon = ''
-local iconFolder = 'TE'
+local iconFolder = 'TCHelper_Images'
 local trackIcon = {}
 trackIcon.name = {}
 trackIcon.name[1] = 'Cuelist.png'
@@ -107,6 +107,26 @@ local addonCheck = true
 local NewCueNames = {}
 local NewFadeTimes = {}
 local NewSeqNames = {}
+local PLOT1_SIZE = 90
+local widgets = {}
+widgets.plots = {
+    animate = true,
+    frame_times = reaper.new_array({ 0.6, 0.1, 1.0, 0.5, 0.92, 0.1, 0.2 }),
+    plot1 = {
+      offset       = 1,
+      refresh_time = 0.0,
+      phase        = 0.0,
+      data         = reaper.new_array(PLOT1_SIZE),
+    },
+    plot2 = {
+      func = 0,
+      size = 70,
+      fill = true,
+      data = reaper.new_array(1),
+    },
+    progress     = 0.0,
+    progress_dir = 1,
+  }
 ------Setup SendedData Dummy Table
 function InitiateSendedData()
     local usedTracks = readTrackGUID('used')
@@ -120,8 +140,8 @@ function InitiateSendedData()
             SetupSendedDataItem(usedTracks[i],itemGuid[j])
         end
     end
+    sendedData.TCsendedShow = false    
 end
-sendedData.TCsendedShow = false    
 function SetupSendedDataTrack (trackGUID)
     sendedData[trackGUID] = {}
     sendedData[trackGUID].id = 'empty'
@@ -194,7 +214,6 @@ end
 ---------------Für Copy Paste API aus Demo File-------------
 local ImGui = {}
 local app = {}
-local widgets = {}
 local layout = {}
 for name, func in pairs(reaper) do
     name = name:match('^ImGui_(.+)$')
@@ -700,6 +719,16 @@ function checkTCHelperTracks()
         end
     end
 end
+function mergeDataOption()
+    if loadProjectMarker == false then
+        sendedData = copy3(loadedtracks)
+        loadProjectMarker = true
+    end
+    checkItemStatus()
+    local OscCommands = setOSCcommand()
+    sendToConsole(hostIP, consolePort, OscCommands)
+end
+
 ---SELECTION TOOLS
 function snapCursorToSelection()
     local selectedItem = getFirstTouchedMediaItem()
@@ -794,6 +823,10 @@ local function TCHelper_Window()
             --reaper.ImGui_MenuItem(ctx, '(demo menu)', nil, false, false)
             if ImGui.MenuItem(ctx, 'About') then
                 local rv = reaper.ShowMessageBox('Version:\n'..version..'\nmade by: \nLichtwerk\nTim Eschert\nSupport:\ne-mail: support@lichtwerk.info', 'About TC Helper', 0)
+            end
+            if ImGui.MenuItem(ctx, 'Merge Data') then
+                mergeDataOption()
+                local rv = reaper.ShowMessageBox('Merged Data', 'TC Helper',0)
             end
             
           reaper.ImGui_EndMenu(ctx)
@@ -1539,6 +1572,7 @@ function renameCuesWindow()
 end
 
 
+
 function openCuesWindow()
 
     ImGui.SetNextWindowSize(ctx, 400, 440, ImGui.Cond_FirstUseEver())
@@ -1571,7 +1605,6 @@ function openTrackWindow()
     end
     return open
 end
-
 function openConnectionWindow()
 
     ImGui.SetNextWindowSize(ctx, 800, 800, ImGui.Cond_FirstUseEver())
@@ -2648,13 +2681,7 @@ local function loop()
         renumberItems()
         --setIPAdress()
         if liveupdatebox == true then --LIVE UPDATE IM LOOP AKTIVIERT
-            if loadProjectMarker == false then
-                sendedData = copy3(loadedtracks)
-                loadProjectMarker = true
-            end
-            checkItemStatus()
-            local OscCommands = setOSCcommand()
-            sendToConsole(hostIP, consolePort, OscCommands)
+            mergeDataOption()
         end
         --reaper.ShowConsoleMsg('\n'..inputCueName)
         --getTrackContent()
