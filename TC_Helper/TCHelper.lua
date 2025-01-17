@@ -1,16 +1,17 @@
 -- @description TCHelper
--- @version 3.0.1
+-- @version 3.0.2
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
 
 local mode2BETA = false
-local version = '3.0.1'
+local version = '3.0.2'
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
 local testcmd2 = 'Echo --CONNECTION ESTABLISHED--'
 local script_title = 'TC HELPER'
 local hostIP = reaper.GetExtState('network','ip')
 local MAmode = reaper.GetExtState('console','mode')
+local startupMode = 'Mode 3'
 local prefix = reaper.GetExtState('network','prefix')
 local consolePort = reaper.GetExtState('network','port')
 local repositoryName = 'mittim88_ReaScript_Repository'
@@ -97,6 +98,7 @@ local inputSS = 0
 local inputFF = 0
 local Color = {}
 local loopback = reaper.GetExtState('console', '3onPC')
+
 if loopback == nil then
     loopback = 'false'
 end
@@ -729,7 +731,12 @@ function mergeDataOption()
     local OscCommands = setOSCcommand()
     sendToConsole(hostIP, consolePort, OscCommands)
 end
-
+function defineMA3ModeOnFirstStrartup()
+    if MAmode == '' then
+        MAmode = startupMode
+        reaper.SetExtState('console','mode', startupMode, true )
+    end
+end
 ---SELECTION TOOLS
 function snapCursorToSelection()
     local selectedItem = getFirstTouchedMediaItem()
@@ -885,6 +892,7 @@ local function TCHelper_Window()
                         --consoleMSG('Mode: '..MAmode)
                     elseif mode2BETA == true then
                         MAmode = 'Mode 2'
+
                         --consoleMSG('Mode: '..MAmode)
                     end
                 end
@@ -1671,6 +1679,7 @@ function addTrack()
     end
     local iconPath = iconFolder .. '/' .. selectedIcon
     local track = reaper.GetTrack(0, newTrackID - 1)
+    local trackstring = tostring(track)
     reaper.GetSetMediaTrackInfo_String(track, 'P_NAME', trackName, true)
     reaper.GetSetMediaTrackInfo_String(track, 'P_ICON', iconPath, true)
     reaper.SetTrackColor(track, reaper.ColorToNative(red, green, blue))
@@ -2676,6 +2685,7 @@ checkSWS()
 InitiateSendedData()
 getTrackContent()
 checkSendedData()
+defineMA3ModeOnFirstStrartup()
 local flags = reaper.ImGui_WindowFlags_MenuBar()   -- Add Menu bar and remove the rezise feature. 
 local function loop()
     if addonCheck == true then
