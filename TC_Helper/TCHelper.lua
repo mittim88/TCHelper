@@ -65,6 +65,9 @@ local selectedOption = 'empty'
 local liveupdatebox = false
 local snapCursorbox = false
 local loadProjectMarker = false
+local cuesChecked = false
+local seqChecked = false
+local networkChecked = false
 local dummyIPstring = '--Enter Console IP--'
 local tracks = {}
 local loadedtracks = {}
@@ -847,11 +850,11 @@ local function TCHelper_Window()
                     seqName = loadedtracks[selTrack].name
                     NewCueNames = getCueNames()
                     NewFadeTimes = getFadeTimes()
-                    openCuesWindow()
+                    cuesChecked = true
                 else
                     NewCueNames = getCueNames()
                     NewFadeTimes = getFadeTimes()
-                    openCuesWindow()
+                    cuesChecked = true
                 end  
             end
             if ImGui.MenuItem(ctx, 'Sequence') then
@@ -860,17 +863,17 @@ local function TCHelper_Window()
                     local selTrack = readTrackGUID('selected')
                     seqName = loadedtracks[selTrack].name
                     getSeqNames()
-                    openTrackWindow()
+                    seqChecked = true
                 else
                     
-                    openTrackWindow()
+                    seqChecked = true
                 end  
             end
             reaper.ImGui_EndMenu(ctx)
         end
         if reaper.ImGui_BeginMenu(ctx, 'Settings') then
             if ImGui.MenuItem(ctx, 'Network') then
-                openConnectionWindow()
+                networkChecked = true
             end
             if reaper.ImGui_BeginMenu(ctx, 'Mode') then
                 local modeCheck2 = false
@@ -1109,14 +1112,14 @@ function connectionWindowMode3()
     ---------------BUTTON---------------------------------------------------------------
     ---------------Test Button---------------------------------------------------------------
     
-    if reaper.ImGui_Button(ctx, '     Save\nNetwork Config', 121, 50) then
+    if reaper.ImGui_Button(ctx, '       Save\nNetwork Config', 121, 50) then
         reaper.SetExtState('network','ip',hostIP,true)
         reaper.SetExtState('network','port',consolePort,true)
         reaper.SetExtState('network','prefix',prefix,true)
         reaper.SetExtState('basic','dataPoolName',datapoolName,true)
     end
     reaper.ImGui_SameLine(ctx)
-    if reaper.ImGui_Button(ctx, '     Load\nNetwork Config', 121, 50) then
+    if reaper.ImGui_Button(ctx, '       Load\nNetwork Config', 121, 50) then
         hostIP = reaper.GetExtState('network','ip')
         consolePort = reaper.GetExtState('network','port')
         prefix = reaper.GetExtState('network','prefix')
@@ -1134,7 +1137,7 @@ function connectionWindowMode3()
         reaper.SetExtState('basic','dataPoolName',datapoolName,true)
     end
     reaper.ImGui_SameLine(ctx)
-    if reaper.ImGui_Button(ctx, '   Test\nConnection', 121, 50) then
+    if reaper.ImGui_Button(ctx, '     Test\nConnection', 121, 50) then
         sendOSC(hostIP, consolePort, testcmd3)
     end
     
@@ -1161,7 +1164,7 @@ function connectionWindowMode3()
         ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
         ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.5, 1.0))
         ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 0,5, 1.0))
-        if reaper.ImGui_Button(ctx, '  Connect to \nGrandMA3 OnPC', 250, 70) then
+        if reaper.ImGui_Button(ctx, '    Connect to \nGrandMA3 OnPC', 250, 70) then
             hostIP = '127.0.0.1'
             loopback = 'true'
             reaper.SetExtState('console','3onPC', loopback, true)
@@ -1173,7 +1176,7 @@ function connectionWindowMode3()
         ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 3, 1, 0.3, 1.0))
         ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 3, 1, 0.5, 1.0))
         ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 3, 1, 0.5, 1.0))
-        if reaper.ImGui_Button(ctx, '    Connected to \nGrandMA3 OnPC', 250, 70) then
+        if reaper.ImGui_Button(ctx, '   Connected to \nGrandMA3 OnPC', 250, 70) then
             local ipOld = reaper.GetExtState('network','ip')
             hostIP = ipOld
             loopback = 'false'
@@ -1505,7 +1508,7 @@ function renameTrackWindow()
         ImGui.EndChild(ctx)
     end
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
-    if reaper.ImGui_Button(ctx, 'WRITE NEW\n  DATA', 100, 100) then
+    if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', 100, 100) then
         renameTrack(NewSeqNames)
     end 
 end
@@ -1562,7 +1565,7 @@ function renameCuesWindow()
 
     end
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
-    if reaper.ImGui_Button(ctx, 'WRITE NEW\n  DATA', 100, 100) then
+    if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', 100, 100) then
         renameItems()
     end 
     
@@ -1587,37 +1590,33 @@ function openCuesWindow()
     ImGui.SetNextWindowSize(ctx, 400, 440, ImGui.Cond_FirstUseEver())
     --local selTrack = readTrackGUID('selected')
     --seqName = loadedtracks[selTrack].name
-    local visible,open = ImGui.Begin(ctx, 'Cue Data', true, ImGui.WindowFlags_MenuBar())
+    visible,cuesChecked = ImGui.Begin(ctx, 'Cue Data', true, ImGui.WindowFlags_MenuBar())
     if visible then
         renameCuesWindow()
         getTrackContent()
         reaper.ImGui_End(ctx)
     end
-    if open then
-        reaper.defer(openCuesWindow)
-    end
-    return open
+    
+    return cuesChecked
 end
 function openTrackWindow()
 
     ImGui.SetNextWindowSize(ctx, 400, 440, ImGui.Cond_FirstUseEver())
     --local selTrack = readTrackGUID('selected')
     --seqName = loadedtracks[selTrack].name
-    local visible,open = ImGui.Begin(ctx, 'Sequence Data', true, ImGui.WindowFlags_MenuBar())
+    visible,seqChecked = ImGui.Begin(ctx, 'Sequence Data', true, ImGui.WindowFlags_MenuBar())
     if visible then
         renameTrackWindow()
         getTrackContent()
         reaper.ImGui_End(ctx)
     end
-    if open then
-        reaper.defer(openTrackWindow)
-    end
-    return open
+   
+    return seqChecked
 end
 function openConnectionWindow()
 
     ImGui.SetNextWindowSize(ctx, 800, 800, ImGui.Cond_FirstUseEver())
-  local visible,open = ImGui.Begin(ctx, 'Connection Settings', true)
+  visible,networkChecked = ImGui.Begin(ctx, 'Connection Settings', true)
   if visible then
     if MAmode == 'Mode 3' then
         connectionWindowMode3()
@@ -1626,10 +1625,8 @@ function openConnectionWindow()
     end
     reaper.ImGui_End(ctx)
     end
-    if open then
-        reaper.defer(openConnectionWindow)
-    end
-    return open
+    
+    return networkChecked
 end
 ---------------ADD Track -------------------------------------------------------------------
 function addTrack()
@@ -2700,19 +2697,127 @@ local function loop()
         cueCount = getItemCount()
         getCursorPosition()
         getSelectedOption()
+
         reaper.ImGui_PushFont(ctx, sans_serif)
-        
-        reaper.ImGui_SetNextWindowSize(ctx, 400, 80, reaper.ImGui_Cond_FirstUseEver())
-        ---------- DOCK
-        if dock then
-            reaper.ImGui_SetNextWindowDockID(ctx, dock)
-            dock = nil
-        end
-        local visible, open = reaper.ImGui_Begin(ctx, script_title, true, flags)
-        if visible then
-            TCHelper_Window()
-            reaper.ImGui_End(ctx)
-        end
+        --GUI COLOR STYLE----------------------------------------------------------------------------------------
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Text(),                      0xDCDCDCFF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TextDisabled(),              0x808080FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_WindowBg(),                  0x333333FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ChildBg(),                   0x42424200)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_PopupBg(),                   0x282828F0)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Border(),                    0x6E6E8080)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_BorderShadow(),              0x00000000)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_FrameBg(),                   0x6D76768A)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_FrameBgHovered(),            0x57575766)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_FrameBgActive(),             0x828282AB)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TitleBg(),                   0x6D7676FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TitleBgActive(),             0x6D7676FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TitleBgCollapsed(),          0x00000082)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_MenuBarBg(),                 0x333333FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ScrollbarBg(),               0x26262687)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ScrollbarGrab(),             0x474747FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ScrollbarGrabHovered(),      0x575757FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ScrollbarGrabActive(),       0x1DB287FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_CheckMark(),                 0x1DB287FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_SliderGrab(),                0x2C2B2BFF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_SliderGrabActive(),          0x1DB287FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(),                    0x4684739C)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(),             0x478473FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(),              0x1DB287FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Header(),                    0x1DB2874F)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_HeaderHovered(),             0x1DB287CC)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_HeaderActive(),              0x1DB287FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Separator(),                 0x1DB28780)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_SeparatorHovered(),          0x1DB287C7)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_SeparatorActive(),           0x1DB287FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ResizeGrip(),                0x1DB28733)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ResizeGripHovered(),         0x1DB287AB)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ResizeGripActive(),          0x1DB287F2)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TabHovered(),                0x478473FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Tab(),                       0x2D4F47FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TabSelected(),               0x478473FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TabSelectedOverline(),       0x1DB287FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TabDimmed(),                 0x111A26F8)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TabDimmedSelected(),         0x23436CFF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TabDimmedSelectedOverline(), 0x808080FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_DockingPreview(),            0x1DB287B3)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_DockingEmptyBg(),            0x333333FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_PlotLines(),                 0x9C9C9CFF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_PlotLinesHovered(),          0xFF6E59FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_PlotHistogram(),             0x223F37FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_PlotHistogramHovered(),      0x1DB287FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TableHeaderBg(),             0x303033FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TableBorderStrong(),         0x4F4F59FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TableBorderLight(),          0x3B3B40FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TableRowBg(),                0x00000000)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TableRowBgAlt(),             0xFFFFFF0F)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TextSelectedBg(),            0x223F3759)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_DragDropTarget(),            0xFFFF00E6)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_NavHighlight(),              0x1DB287FF)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_NavWindowingHighlight(),     0xFFFFFFB3)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_NavWindowingDimBg(),         0xCCCCCC33)
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ModalWindowDimBg(),          0xCCCCCC59)
+        -------------------------------------------------------------------------------------------------
+        --GUI WINDOW STYLE-------------------------------------------------------------------------------
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_Alpha(),                       1)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_DisabledAlpha(),               0.6)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_WindowPadding(),               8, 8)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_WindowRounding(),              6)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_WindowBorderSize(),            1)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_WindowMinSize(),               32, 32)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_WindowTitleAlign(),            0, 0.5)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ChildRounding(),               6)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ChildBorderSize(),             1)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_PopupRounding(),               6)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_PopupBorderSize(),             1)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_FramePadding(),                4, 3)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_FrameRounding(),               2)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_FrameBorderSize(),             1)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ItemSpacing(),                 8, 4)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ItemInnerSpacing(),            4, 4)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_IndentSpacing(),               18)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_CellPadding(),                 4, 2)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ScrollbarSize(),               14)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ScrollbarRounding(),           6)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_GrabMinSize(),                 12)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_GrabRounding(),                1)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_TabRounding(),                 2)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_TabBorderSize(),               0)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_TabBarBorderSize(),            0)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_TableAngledHeadersAngle(),     0.610865)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_TableAngledHeadersTextAlign(), 0.5, 0)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ButtonTextAlign(),             0.5, 0.5)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_SelectableTextAlign(),         0, 0)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_SeparatorTextBorderSize(),     3)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_SeparatorTextAlign(),          0, 0.5)
+        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_SeparatorTextPadding(),        20, 3)
+        -------------------------------------------------------------------------------------------------
+
+
+
+
+reaper.ImGui_SetNextWindowSize(ctx, 400, 80, reaper.ImGui_Cond_FirstUseEver())
+---------- DOCK
+if dock then
+    reaper.ImGui_SetNextWindowDockID(ctx, dock)
+    dock = nil
+end
+local visible, open = reaper.ImGui_Begin(ctx, script_title, true, flags)
+if visible then
+    TCHelper_Window()
+    reaper.ImGui_End(ctx)
+end
+if cuesChecked == true then
+    openCuesWindow()
+end
+if seqChecked == true then
+    openTrackWindow()
+end
+if networkChecked == true then
+    openConnectionWindow()
+end
+        reaper.ImGui_PopStyleColor(ctx, 57)
+        reaper.ImGui_PopStyleVar(ctx, 32)
         reaper.ImGui_PopFont(ctx)
         if open then
             reaper.defer(loop)
