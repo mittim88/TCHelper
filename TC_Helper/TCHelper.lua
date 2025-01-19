@@ -1,11 +1,11 @@
 -- @description TCHelper
--- @version 3.0.2
+-- @version 3.0.3
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
 
 local mode2BETA = false
-local version = '3.0.2'
+local version = '3.0.3'
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
 local testcmd2 = 'Echo --CONNECTION ESTABLISHED--'
 local script_title = 'TC HELPER'
