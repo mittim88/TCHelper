@@ -1,11 +1,19 @@
 -- @description TCHelper
--- @version 3.0.3
+-- @version 3.0.4
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
 
+
+
+-----FAKETEST++
+---LULULU
+---
+---Fooo+
+---
+---
 local mode2BETA = false
-local version = '3.0.3'
+local version = '3.0.4'
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
 local testcmd2 = 'Echo --CONNECTION ESTABLISHED--'
 local script_title = 'TC HELPER'
@@ -311,6 +319,11 @@ function replaceSpecialCharacters(inputString)
     end
 
     return inputString
+end
+function sleep (a) 
+    local sec = tonumber(os.clock() + a); 
+    while (os.clock() < sec) do 
+    end 
 end
 function checkSeqInfo()
     local seqCheckname = {}
@@ -650,6 +663,7 @@ function getCueNames()
 end
 function getSeqNames ()
     local usedTracks = readTrackGUID('used')
+    consoleMSG('usedTracks: '..#usedTracks)
     for i = 1, #usedTracks, 1 do
         NewSeqNames[i] = loadedtracks[usedTracks[i]].name
     end
@@ -679,7 +693,7 @@ function checkTCHelperTracks()
     local tcHelperTracks = readTrackGUID('used')
     local trackCheck = false
     if selTrack == nil then
-        reaper.ShowMessageBox('\nNo Track selected\nPlease select your desired Track', 'Error', 0)
+        --reaper.ShowMessageBox('\nNo Track selected\nPlease select your desired Track', 'Error', 0)
     else
         for i = 0, #tcHelperTracks do
             if tcHelperTracks[i] == selTrack then
@@ -1486,14 +1500,14 @@ end
 -----------------RENAMEING DATA WINDOWS-------------------------------------------------------------
 function renameTrackWindow()
     local spaceBtn = 50
-    local paneWidth = 400
+    local paneWidth = 220
     local usedTracks = readTrackGUID('used')
-    local seqNames = {}
+    local liveTrackAmmount = liveTrackCount
     local seqIDs = {}
-    for i = 1, #usedTracks, 1 do
-        seqIDs[i] = loadedtracks[usedTracks[i]].seqID
-    end
-   
+    -- if usedTracks ~= liveTrackAmmount then
+    --     --getTrackContent()
+    --     getSeqNames()
+    -- end
     if not app.layout then
         app.layout = {
             selected = 0,
@@ -1501,15 +1515,27 @@ function renameTrackWindow()
     end
     if ImGui.BeginChild(ctx, 'left pane', paneWidth, 0, true) then
         reaper.ImGui_Text(ctx, 'Sequence Names')
-        for i = 1, #NewSeqNames, 1 do
+
+        for i = 1, #usedTracks, 1 do
             ImGui.SetNextItemWidth(ctx, 150)
+            if NewSeqNames[i] == nil then
+                NewSeqNames[i] = 'deleted'
+            end
             rv, NewSeqNames[i] = reaper.ImGui_InputText(ctx, 'Seq '..seqIDs[i], NewSeqNames[i])
         end
-        ImGui.EndChild(ctx)
     end
+    ImGui.EndChild(ctx)
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', 100, 100) then
         renameTrack(NewSeqNames)
+    end 
+    reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 180)
+    if reaper.ImGui_Button(ctx, 'Reload Data', 100, 100) then
+        --reaper.ShowConsoleMsg('\nLOAD')
+        local validTracks = checkTCHelperTracks()
+        if validTracks == true then
+            getSeqNames()
+        end
     end 
 end
 function renameCuesWindow()
@@ -1582,9 +1608,6 @@ function renameCuesWindow()
         end
     end 
 end
-
-
-
 function openCuesWindow()
 
     ImGui.SetNextWindowSize(ctx, 400, 440, ImGui.Cond_FirstUseEver())
@@ -1696,7 +1719,18 @@ function addTrack()
 end
 function deleteTrack()
     --reaper.ShowConsoleMsg('\nDELETE TRACK START')
-    
+    getTrackContent()
+    getSeqNames()
+    local trackGUIDS = readTrackGUID('used')
+    local selectedTrackGUID = readTrackGUID('selected')
+
+
+    local trackPos = 1
+    for i = 1, #trackGUIDS, 1 do
+        if loadedtracks[trackGUIDS[i]].id == trackGUIDS[i] then
+            trackPos = i
+        end 
+    end
     local numSelectedTracks = reaper.CountSelectedTracks(0)
     if numSelectedTracks > 0 then
         reaper.PreventUIRefresh(1) -- Disable UI updates to prevent flickering
@@ -1705,6 +1739,8 @@ function deleteTrack()
             local track = reaper.GetSelectedTrack(0, i-1)
             local trackGUID = reaper.GetTrackGUID(track)
             local trackName = loadedtracks[trackGUID].name
+
+            --table.remove(loadedtracks[trackGUID],trackPos)
             if liveupdatebox == true then
                 local seqMessage = 'Delete Seq "'..trackName..'" /nc'
                 local tcMessage = 'Delete Timecode '..tcID..'.1.'..loadedtracks[trackGUID].nr
@@ -1712,6 +1748,7 @@ function deleteTrack()
                 sendOSC(hostIP, consolePort, tcMessage)
             end
             reaper.DeleteTrack(track)
+            loadedtracks[selectedTrackGUID] = nil
         end      
         reaper.PreventUIRefresh(-1) -- Enable UI updates
         reaper.UpdateArrange() -- Refresh the GUI
@@ -2454,6 +2491,9 @@ function sendToConsole(hostIP, consolePort, OscCommands)
     --reaper.ShowConsoleMsg('\nEND OF SEND TO CONSOLE')
 end
 function sendOSC(hostIP, consolePort, cmd)
+    local delay = 0.001
+
+    sleep(delay)
     local msg = osc_encode('/' .. prefix .. '/cmd', 's', cmd)
     
     --local msg = '/reaper/cmd "Store Seq 1001"'
@@ -2677,7 +2717,8 @@ function sendToConsoleMA2(OscCommands)
     --sendedData = copy3(loadedtracks)
     --reaper.ShowConsoleMsg('\nEND OF SEND TO CONSOLE')
 end
-local dock = -3
+local dock = 3
+-- local dock = -3
 checkSWS()
 InitiateSendedData()
 getTrackContent()
@@ -2697,9 +2738,11 @@ local function loop()
         cueCount = getItemCount()
         getCursorPosition()
         getSelectedOption()
+        liveTrackCount = readTrackGUID('used')
 
         reaper.ImGui_PushFont(ctx, sans_serif)
         --GUI COLOR STYLE----------------------------------------------------------------------------------------
+        --------------------------------------------------------------------------------------------------------
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Text(),                      0xDCDCDCFF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TextDisabled(),              0x808080FF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_WindowBg(),                  0x333333FF)
@@ -2796,7 +2839,7 @@ local function loop()
 
 
 
-reaper.ImGui_SetNextWindowSize(ctx, 400, 80, reaper.ImGui_Cond_FirstUseEver())
+reaper.ImGui_SetNextWindowSize(ctx, 200, 80, reaper.ImGui_Cond_FirstUseEver())
 ---------- DOCK
 if dock then
     reaper.ImGui_SetNextWindowDockID(ctx, dock)
