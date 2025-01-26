@@ -656,7 +656,6 @@ function getCueNames()
 end
 function getSeqNames ()
     local usedTracks = readTrackGUID('used')
-    consoleMSG('usedTracks: '..#usedTracks)
     for i = 1, #usedTracks, 1 do
         NewSeqNames[i] = loadedtracks[usedTracks[i]].name
     end
@@ -868,7 +867,7 @@ local function TCHelper_Window()
                 local validTracks = checkTCHelperTracks()
                 if validTracks == true then
                     local selTrack = readTrackGUID('selected')
-                    seqName = loadedtracks[selTrack].name
+                    --seqName = loadedtracks[selTrack].name
                     getSeqNames()
                     seqChecked = true
                 else
@@ -1495,12 +1494,7 @@ function renameTrackWindow()
     local spaceBtn = 50
     local paneWidth = 220
     local usedTracks = readTrackGUID('used')
-    local liveTrackAmmount = liveTrackCount
     local seqIDs = {}
-    -- if usedTracks ~= liveTrackAmmount then
-    --     --getTrackContent()
-    --     getSeqNames()
-    -- end
     if not app.layout then
         app.layout = {
             selected = 0,
@@ -2731,7 +2725,7 @@ local function loop()
         cueCount = getItemCount()
         getCursorPosition()
         getSelectedOption()
-        liveTrackCount = readTrackGUID('used')
+        --liveTrackCount = readTrackGUID('used')
 
         reaper.ImGui_PushFont(ctx, sans_serif)
         --GUI COLOR STYLE----------------------------------------------------------------------------------------
