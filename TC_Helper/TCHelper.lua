@@ -1,11 +1,11 @@
 -- @description TCHelper
--- @version 3.0.3
+-- @version 3.0.4
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
 
 local mode2BETA = false
-local version = '3.0.3'
+local version = '3.0.4'
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
 local testcmd2 = 'Echo --CONNECTION ESTABLISHED--'
 local script_title = 'TC HELPER'
@@ -311,6 +311,12 @@ function replaceSpecialCharacters(inputString)
     end
 
     return inputString
+end
+
+function sleep (a) 
+    local sec = tonumber(os.clock() + a); 
+    while (os.clock() < sec) do 
+    end 
 end
 function checkSeqInfo()
     local seqCheckname = {}
@@ -2453,7 +2459,10 @@ function sendToConsole(hostIP, consolePort, OscCommands)
     --sendedData = copy3(loadedtracks)
     --reaper.ShowConsoleMsg('\nEND OF SEND TO CONSOLE')
 end
-function sendOSC(hostIP, consolePort, cmd)
+function sendOSC(hostIP, consolePort, cmd) --2480
+    local delay = 0.001
+
+    sleep(delay)
     local msg = osc_encode('/' .. prefix .. '/cmd', 's', cmd)
     
     --local msg = '/reaper/cmd "Store Seq 1001"'
