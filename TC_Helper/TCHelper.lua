@@ -8,7 +8,7 @@ local mode2BETA = false
 local version = '3.0.4'
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
 local testcmd2 = 'Echo --CONNECTION ESTABLISHED--'
-local script_title = 'TC HELPER'
+local script_title = 'TCHelper'
 local hostIP = reaper.GetExtState('network','ip')
 local MAmode = reaper.GetExtState('console','mode')
 local startupMode = 'Mode 3'
@@ -68,7 +68,7 @@ local loadProjectMarker = false
 local cuesChecked = false
 local seqChecked = false
 local networkChecked = false
-local dummyIPstring = '--Enter Console IP--'
+local dummyIPstring = '--Enter console IP--'
 local tracks = {}
 local loadedtracks = {}
 local sendedData = {}
@@ -841,9 +841,9 @@ local function TCHelper_Window()
             if ImGui.MenuItem(ctx, 'About') then
                 local rv = reaper.ShowMessageBox('Version:\n'..version..'\nmade by: \nLichtwerk\nTim Eschert\nSupport:\ne-mail: support@lichtwerk.info', 'About TC Helper', 0)
             end
-            if ImGui.MenuItem(ctx, 'Merge Data') then
+            if ImGui.MenuItem(ctx, 'Merge data') then
                 mergeDataOption()
-                local rv = reaper.ShowMessageBox('Merged Data', 'TC Helper',0)
+                local rv = reaper.ShowMessageBox('Merged data', script_title,0)
             end
             
           reaper.ImGui_EndMenu(ctx)
@@ -889,7 +889,7 @@ local function TCHelper_Window()
                 if ImGui.MenuItem(ctx, 'Mode 2', nil, modeCheck2) then 
                     if mode2BETA == false then
                         MAmode = 'Mode 3'
-                        local rv = reaper.ShowMessageBox('MODE 2 IS NOT READY YET', 'TC Helper', 0)
+                        local rv = reaper.ShowMessageBox('MODE 2 IS NOT READY YET', script_title, 0)
                         --consoleMSG('Mode: '..MAmode)
                     elseif mode2BETA == true then
                         MAmode = 'Mode 2'
@@ -983,22 +983,22 @@ function connectionWindowMode2()
     
     ---------------Input Port---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
-    rv, userName = reaper.ImGui_InputText(ctx, 'User Name', userName)
+    rv, userName = reaper.ImGui_InputText(ctx, 'Username', userName)
     
     ---------------Input Test Message ---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
-    rv, testcmd2 = reaper.ImGui_InputText(ctx, 'Test Command', testcmd2)
+    rv, testcmd2 = reaper.ImGui_InputText(ctx, 'Testcommand', testcmd2)
     ---------------BUTTON---------------------------------------------------------------
     ---------------Test Button---------------------------------------------------------------
     
-    if reaper.ImGui_Button(ctx, '          Save\nNetwork Config', 121, 50) then
+    if reaper.ImGui_Button(ctx, '          Save\nNetworkconfig', 121, 50) then
         reaper.SetExtState('network','ip',hostIP,true)
         reaper.SetExtState('network','userName',userName,true)
         reaper.SetExtState('network','prefix',prefix,true)
         reaper.SetExtState('basic','dataPoolName',datapoolName,true)
     end
     reaper.ImGui_SameLine(ctx)
-    if reaper.ImGui_Button(ctx, '          Load\nNetwork Config', 121, 50) then
+    if reaper.ImGui_Button(ctx, '          Load\nNetworkConfig', 121, 50) then
         hostIP = reaper.GetExtState('network','ip')
         userName = reaper.GetExtState('network','userName')
       
@@ -1014,7 +1014,7 @@ function connectionWindowMode2()
     if reaper.ImGui_Button(ctx, '      Test\nConnection', 121, 50) then
         sendTelnet(testcmd2)
     end
-    if reaper.ImGui_Button(ctx, '   Merge\nto Console', 121, 70) then
+    if reaper.ImGui_Button(ctx, '   Merge\nto console', 121, 70) then
         --reaper.ShowMessageBox('TC Helper\nMERGE NOT IMPLEMENTED YET', 'Error', 0)
         renumberItems()
         getTrackContent()
@@ -1106,18 +1106,18 @@ function connectionWindowMode3()
     
     ---------------Input Test Message ---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
-    rv, testcmd3 = reaper.ImGui_InputText(ctx, 'Test Command', testcmd3)
+    rv, testcmd3 = reaper.ImGui_InputText(ctx, 'Testcommand', testcmd3)
     ---------------BUTTON---------------------------------------------------------------
     ---------------Test Button---------------------------------------------------------------
     
-    if reaper.ImGui_Button(ctx, '       Save\nNetwork Config', 121, 50) then
+    if reaper.ImGui_Button(ctx, '       Save\nNetworkconfig', 121, 50) then
         reaper.SetExtState('network','ip',hostIP,true)
         reaper.SetExtState('network','port',consolePort,true)
         reaper.SetExtState('network','prefix',prefix,true)
         reaper.SetExtState('basic','dataPoolName',datapoolName,true)
     end
     reaper.ImGui_SameLine(ctx)
-    if reaper.ImGui_Button(ctx, '       Load\nNetwork Config', 121, 50) then
+    if reaper.ImGui_Button(ctx, '       Load\nNetworkconfig', 121, 50) then
         hostIP = reaper.GetExtState('network','ip')
         consolePort = reaper.GetExtState('network','port')
         prefix = reaper.GetExtState('network','prefix')
@@ -1186,7 +1186,7 @@ function connectionWindowMode3()
     
     
     reaper.ImGui_SetCursorPos(ctx, 500, toptextYoffset + 50)
-    rv,liveupdatebox = ImGui.Checkbox(ctx, 'Live Update to Console', liveupdatebox)
+    rv,liveupdatebox = ImGui.Checkbox(ctx, 'Live update to console', liveupdatebox)
     
     ---------------Single Update Button---------------------------------------------------------------
     --[[ reaper.ImGui_SetCursorPos(ctx, 300, 190)
@@ -1232,8 +1232,8 @@ function ToolsWindow()
     rv3, inputSS = reaper.ImGui_InputTextWithHint(ctx, ': ', 'ss', inputSS)    
     reaper.ImGui_SameLine(ctx)
     reaper.ImGui_SetNextItemWidth(ctx, inputwidth)
-    rv4, inputFF = reaper.ImGui_InputTextWithHint(ctx, 'New Items Time', 'ff', inputFF)
-    if reaper.ImGui_Button(ctx, 'Set Item to Time', 200, 50) then
+    rv4, inputFF = reaper.ImGui_InputTextWithHint(ctx, 'New items time', 'ff', inputFF)
+    if reaper.ImGui_Button(ctx, 'Set item to time', 200, 50) then
         hhSeconds = tonumber(inputHH) * 3600
         mmSeconds = tonumber(inputMM) * 60
         ssfloat = tonumber(inputSS)
@@ -1242,11 +1242,11 @@ function ToolsWindow()
         moveItem (newTime)
         
     end
-    rv,snapCursorbox = ImGui.Checkbox(ctx, 'Snap Cursor to Item', snapCursorbox)
+    rv,snapCursorbox = ImGui.Checkbox(ctx, 'Snap cursor to item', snapCursorbox)
     
     
     reaper.ImGui_SetCursorPos(ctx, 500, 90)
-    ImGui.Text(ctx, 'Select Before or After Cursor')
+    ImGui.Text(ctx, '               Select before or after cursor')
     reaper.ImGui_SetCursorPos(ctx, 500, 110)
     if reaper.ImGui_Button(ctx, 'Before', 100, 100) then
         selectToolsmaller()
@@ -1267,7 +1267,7 @@ function ToolsWindow()
         }
     end
     
-    if ImGui.Button(ctx, 'Track Option') then
+    if ImGui.Button(ctx, 'Track option') then
         ImGui.OpenPopup(ctx, 'my_select_popup')
     end
     reaper.ImGui_SameLine(ctx)
@@ -1325,7 +1325,7 @@ function CueListSetupWindow()
     end
     reaper.ImGui_SetCursorPos(ctx, 700, 80)
     
-    if reaper.ImGui_Button(ctx, 'Save Track Config', 145, 50) then
+    if reaper.ImGui_Button(ctx, 'Save track config', 145, 50) then
         reaper.SetExtState('trackconfig', 'seqId', seqID , true)
         reaper.SetExtState('trackconfig', 'tcId', tcID, true)
         reaper.SetExtState('trackconfig', 'pageId', pageID, true)
@@ -1337,7 +1337,7 @@ function CueListSetupWindow()
     ---------------Input TimecodeID---------------------------------------------------------------
     ---------------Add Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, buttonX, buttonY)
-    if reaper.ImGui_Button(ctx, '    Add\nTC Track', buttonWidth, buttonHeight) then
+    if reaper.ImGui_Button(ctx, '   Add\nTC track', buttonWidth, buttonHeight) then
         addTrack()
         
         reaper.ImGui_SameLine(ctx)
@@ -1348,7 +1348,7 @@ function CueListSetupWindow()
     ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
-    if reaper.ImGui_Button(ctx, '  Delete\nTC Track', buttonWidth, buttonHeight) then
+    if reaper.ImGui_Button(ctx, '  Delete\nTC track', buttonWidth, buttonHeight) then
         deleteTrack()
         reaper.ImGui_SameLine(ctx)
     end
@@ -1366,7 +1366,7 @@ function CueListSetupWindow()
         }
     end
     reaper.ImGui_SetCursorPos(ctx, 9, 110)
-    if ImGui.Button(ctx, 'Select Exec Option') then
+    if ImGui.Button(ctx, 'Select exec option') then
         ImGui.OpenPopup(ctx, 'my_select_popup')
     end
     ImGui.SameLine(ctx)
@@ -1397,17 +1397,17 @@ function CueItemWindow()
     ImGui.SeparatorText(ctx, 'SETUP EVENT')
     ---------------Input Cuelist Name---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 300)
-    rv, inputCueName = reaper.ImGui_InputText(ctx, 'Cue Name', inputCueName)
+    rv, inputCueName = reaper.ImGui_InputText(ctx, 'Cuename', inputCueName)
     inputCueName = replaceSpecialCharacters(inputCueName)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
-    rv, fadetime = reaper.ImGui_InputText(ctx, 'Fade Time ', fadetime)
+    rv, fadetime = reaper.ImGui_InputText(ctx, 'Fadetime ', fadetime)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     
-    rv, cueNr = reaper.ImGui_InputText(ctx, 'Cue Nr (Will be set automatically)', cueNr)
+    rv, cueNr = reaper.ImGui_InputText(ctx, 'cue nr (will be set automatically)', cueNr)
     
     ---------------Add Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 500, toptextYoffset + 55)
-    if reaper.ImGui_Button(ctx, 'Add Cue', 100, 80) then
+    if reaper.ImGui_Button(ctx, 'Add cue', 100, 80) then
         local check = checkTCHelperTracks()
 
         if check == false then
@@ -1427,7 +1427,7 @@ function CueItemWindow()
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
     
-    if reaper.ImGui_Button(ctx, '  Delete\nSelection', 100, 80) then
+    if reaper.ImGui_Button(ctx, '  Delete\nselection', 100, 80) then
         deleteSelection()
         reaper.ImGui_SameLine(ctx)
     end 
@@ -1441,16 +1441,16 @@ function TempItemWindow()
     ImGui.SeparatorText(ctx, 'SETUP EVENT')
     ---------------Input Cuelist Name---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 300)
-    rv, fadetime = reaper.ImGui_InputText(ctx, 'Fade Time ', fadetime)
+    rv, fadetime = reaper.ImGui_InputText(ctx, 'Fadetime ', fadetime)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
-    rv, holdtime = reaper.ImGui_InputText(ctx, 'Hold Time in sec', holdtime)
+    rv, holdtime = reaper.ImGui_InputText(ctx, 'Holdtime in sec', holdtime)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     
     
     
     ---------------Add Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 500, toptextYoffset + 55)
-    if reaper.ImGui_Button(ctx, 'Add Button Press', 150, 80) then
+    if reaper.ImGui_Button(ctx, 'Add buttonpress', 150, 80) then
         --cueName = 'Cue '..cueNr
         local check = checkTCHelperTracks()
 
@@ -1498,7 +1498,7 @@ function renameTrackWindow()
         }
     end
     if ImGui.BeginChild(ctx, 'left pane', paneWidth, 0, true) then
-        reaper.ImGui_Text(ctx, 'Sequence Names')
+        reaper.ImGui_Text(ctx, 'Sequencenames')
         for i = 1, #NewSeqNames, 1 do
             ImGui.SetNextItemWidth(ctx, 150)
             rv, NewSeqNames[i] = reaper.ImGui_InputText(ctx, 'Seq '..seqIDs[i], NewSeqNames[i])
@@ -1510,7 +1510,7 @@ function renameTrackWindow()
         renameTrack(NewSeqNames)
     end 
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 180)
-    if reaper.ImGui_Button(ctx, 'Reload Data', 100, 100) then
+    if reaper.ImGui_Button(ctx, 'Reload data', 100, 100) then
                NewCueNames = getSeqNames()
        end 
 end
@@ -1519,7 +1519,7 @@ function renameCuesWindow()
     local paneWidth = 400
     local tcTrack = readTrackGUID('selected')
     if tcTrack == false then
-        reaper.ImGui_Text(ctx, 'No Track Selected')
+        reaper.ImGui_Text(ctx, 'No track selected')
     else
 
         if not app.layout then
@@ -1527,7 +1527,7 @@ function renameCuesWindow()
                 selected = 0,
             }
         end
-        reaper.ImGui_Text(ctx,'Selected Track: '..seqName)
+        reaper.ImGui_Text(ctx,'Selected track: '..seqName)
         if ImGui.BeginChild(ctx, 'left pane', paneWidth, 0, true) then
             reaper.ImGui_SetCursorPos(ctx, 50,10)
             reaper.ImGui_Text(ctx, 'Cuenames')
@@ -1572,7 +1572,7 @@ function renameCuesWindow()
     end 
     
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 180)
-    if reaper.ImGui_Button(ctx, 'Reload Data', 100, 100) then
+    if reaper.ImGui_Button(ctx, 'Reload data', 100, 100) then
      --reaper.ShowConsoleMsg('\nLOAD')
         local validTracks = checkTCHelperTracks()
         if validTracks == true then
