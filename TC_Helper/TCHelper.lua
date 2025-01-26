@@ -5,13 +5,6 @@
 --   /TC_Helper/*.lua
 
 
-
------FAKETEST++
----LULULU
----
----Fooo+
----
----
 local mode2BETA = false
 local version = '3.0.4'
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
