@@ -864,16 +864,8 @@ local function TCHelper_Window()
                 end  
             end
             if ImGui.MenuItem(ctx, 'Sequence') then
-                local validTracks = checkTCHelperTracks()
-                if validTracks == true then
-                    local selTrack = readTrackGUID('selected')
-                    seqName = loadedtracks[selTrack].name
-                    getSeqNames()
-                    seqChecked = true
-                else
-                    
-                    seqChecked = true
-                end  
+                getSeqNames()
+                seqChecked = true
             end
             reaper.ImGui_EndMenu(ctx)
         end
@@ -1517,6 +1509,10 @@ function renameTrackWindow()
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', 100, 100) then
         renameTrack(NewSeqNames)
     end 
+    reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 180)
+    if reaper.ImGui_Button(ctx, 'Reload Data', 100, 100) then
+               NewCueNames = getSeqNames()
+       end 
 end
 function renameCuesWindow()
     local spaceBtn = 50
