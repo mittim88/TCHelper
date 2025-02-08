@@ -110,9 +110,9 @@ if ma2Loopback == nil then
     ma2Loopback = 'false'
 end
 local addonCheck = true
-local NewCueNames = {}
+local NewCueNames = {} --@paul Hier wird NewCueNames erstellt und soll dann ja im ganzen Script verfügbar sein 
 local NewFadeTimes = {}
-local NewSeqNames = {}
+local NewSeqNames = {} --@paul Hier wird NewSeqNames erstellt und soll dann ja im ganzen Script verfügbar sein 
 local PLOT1_SIZE = 90
 local widgets = {}
 widgets.plots = {
@@ -447,7 +447,7 @@ function getSelectedOption()
         end
     end
 end
-function getTrackContent()
+function getTrackContent() --@Paul hier wird der loadedTracks table erstellt in dem liegen die ganzen Daten aus dem Reaper projekt sortiert nach GUIDs auf den wird immer immer wieder zugegriffen um daten an das pult und so zu schicken
     local check = '|'
     local trackAmmount = reaper.GetNumTracks()
     local trackcount = 1
@@ -654,7 +654,7 @@ function getCueNames()
     end
     return oldCueName
 end
-function getSeqNames ()
+function getSeqNames () --@Paul hier ist die funktion in der NewCueNames mit daten gefüüllt wird 
     local usedTracks = readTrackGUID('used')
     for i = 1, #usedTracks, 1 do
         NewSeqNames[i] = loadedtracks[usedTracks[i]].name
@@ -1349,7 +1349,7 @@ function CueListSetupWindow()
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
     if reaper.ImGui_Button(ctx, '  Delete\nTC track', buttonWidth, buttonHeight) then
-        deleteTrack()
+        deleteTrack() --@Paul hier wird delete Track ausgeführt (buttonpress)
         reaper.ImGui_SameLine(ctx)
     end
     ImGui.PopStyleColor(ctx, 3)
@@ -1482,7 +1482,7 @@ function TempItemWindow()
     ImGui.Text(ctx, headerText)
 end
 -----------------RENAMEING DATA WINDOWS-------------------------------------------------------------
-function renameTrackWindow()
+function renameTrackWindow() --@Paul das ist das rename Track fenster
     local spaceBtn = 50
     local paneWidth = 400
     local usedTracks = readTrackGUID('used')
@@ -1501,7 +1501,7 @@ function renameTrackWindow()
         reaper.ImGui_Text(ctx, 'Sequencenames')
         for i = 1, #NewSeqNames, 1 do
             ImGui.SetNextItemWidth(ctx, 150)
-            rv, NewSeqNames[i] = reaper.ImGui_InputText(ctx, 'Seq '..seqIDs[i], NewSeqNames[i])
+            rv, NewSeqNames[i] = reaper.ImGui_InputText(ctx, 'Seq '..seqIDs[i], NewSeqNames[i]) --@Paul hier ist das fenster das NewCueNames benutzt... so wie ich das verstanden habe MUSS mann für die InputText funktion von Imgui der Output = Input sein zumindest funktioniert das so bei allen Text inputs. Weil die GUI ja in einem loop läuft.
         end
         ImGui.EndChild(ctx)
     end
@@ -1696,7 +1696,7 @@ function addTrack()
     SetupSendedDataTrack (newTrackGUID)
     getTrackContent()
 end
-function deleteTrack()
+function deleteTrack() --@Paul Delete funktion
     --reaper.ShowConsoleMsg('\nDELETE TRACK START')
     
     local numSelectedTracks = reaper.CountSelectedTracks(0)
