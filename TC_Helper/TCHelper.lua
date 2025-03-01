@@ -312,7 +312,35 @@ function replaceSpecialCharacters(inputString)
 
     return inputString
 end
+function checkDuplicateCueNames()
+    getTrackContent()
+    local trackGUIDs = readTrackGUID('used')
+    local nameCount = {}
 
+    for i = 1, #trackGUIDs do
+        local itemGUIDs = readItemGUID(trackGUIDs[i])
+        for j = 1, #itemGUIDs do
+
+            local track = loadedtracks[trackGUIDs[i]]
+            if track and track.cue and track.cue[itemGUIDs[j]] then
+                local cueName = track.cue[itemGUIDs[j]].name
+                -- Entferne den Index, falls vorhanden
+                local baseName = cueName:match("^(.-) %(%d+%)$") or cueName
+                if not nameCount[baseName] then
+                    nameCount[baseName] = 0
+                else
+                    nameCount[baseName] = nameCount[baseName] + 1
+                    local newCueName = baseName .. " " .. nameCount[baseName]
+                    local oldCue = track.cue[itemGUIDs[j]]
+                    track.cue[itemGUIDs[j]].name = newCueName
+                    local newItemName = '|' .. newCueName .. '|\n|' .. track.execoption .. '|\n|Cue: ' .. oldCue.cuenr .. '|\n|Fadetime: ' .. oldCue.fadetime .. '|'
+                    reaper.GetSetMediaItemInfo_String(reaper.BR_GetMediaItemByGUID(0, itemGUIDs[j]), "P_NOTES", newItemName, true)
+                end
+            end
+        end
+    end
+    getTrackContent()
+end
 function sleep (a) 
     local sec = tonumber(os.clock() + a); 
     while (os.clock() < sec) do 
@@ -1569,6 +1597,7 @@ function renameCuesWindow()
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', 100, 100) then
         renameItems()
+        checkDuplicateCueNames()
     end 
     
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 180)
@@ -1868,6 +1897,7 @@ function addItem()
         SetupSendedDataItem(trackGUID, newCueGUID)
         renumberItems()
     end
+    checkDuplicateCueNames()
     getTrackContent()
 end
 
@@ -1893,6 +1923,7 @@ function renameItems()
         itemName = '|' ..inputName..'|\n|' ..loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. i .. '|\n|Fadetime: ' ..inputFade .. '|'
         reaper.GetSetMediaItemInfo_String(mediaItem[i], "P_NOTES", itemName, true)
     end
+    checkDuplicateCueNames()
     reaper.ThemeLayout_RefreshAll()
     getTrackContent()
 end
