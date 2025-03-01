@@ -112,9 +112,9 @@ if ma2Loopback == nil then
     ma2Loopback = 'false'
 end
 local addonCheck = true
-local NewCueNames = {} --@paul Hier wird NewCueNames erstellt und soll dann ja im ganzen Script verfügbar sein 
+local NewCueNames = {} 
 local NewFadeTimes = {}
-local NewSeqNames = {} --@paul Hier wird NewSeqNames erstellt und soll dann ja im ganzen Script verfügbar sein 
+local NewSeqNames = {} 
 local PLOT1_SIZE = 90
 local widgets = {}
 widgets.plots = {
@@ -477,7 +477,7 @@ function getSelectedOption()
         end
     end
 end
-function getTrackContent() --@Paul hier wird der loadedTracks table erstellt in dem liegen die ganzen Daten aus dem Reaper projekt sortiert nach GUIDs auf den wird immer immer wieder zugegriffen um daten an das pult und so zu schicken
+function getTrackContent() 
     local check = '|'
     local trackAmmount = reaper.GetNumTracks()
     local trackcount = 1
@@ -684,7 +684,7 @@ function getCueNames()
     end
     return oldCueName
 end
-function getSeqNames () --@Paul hier ist die funktion in der NewCueNames mit daten gefüüllt wird 
+function getSeqNames () 
     local usedTracks = readTrackGUID('used')
     for i = 1, #usedTracks, 1 do
         NewSeqNames[i] = loadedtracks[usedTracks[i]].name
@@ -1834,7 +1834,7 @@ function addTrack()
     SetupSendedDataTrack (newTrackGUID)
     getTrackContent()
 end
-function deleteTrack() --@Paul Delete funktion
+function deleteTrack()
     --reaper.ShowConsoleMsg('\nDELETE TRACK START')
     
     local numSelectedTracks = reaper.CountSelectedTracks(0)
