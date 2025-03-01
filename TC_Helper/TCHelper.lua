@@ -312,7 +312,35 @@ function replaceSpecialCharacters(inputString)
 
     return inputString
 end
+function checkDuplicateCueNames()
+    getTrackContent()
+    local trackGUIDs = readTrackGUID('used')
+    local nameCount = {}
 
+    for i = 1, #trackGUIDs do
+        local itemGUIDs = readItemGUID(trackGUIDs[i])
+        for j = 1, #itemGUIDs do
+
+            local track = loadedtracks[trackGUIDs[i]]
+            if track and track.cue and track.cue[itemGUIDs[j]] then
+                local cueName = track.cue[itemGUIDs[j]].name
+                -- Entferne den Index, falls vorhanden
+                local baseName = cueName:match("^(.-) %(%d+%)$") or cueName
+                if not nameCount[baseName] then
+                    nameCount[baseName] = 0
+                else
+                    nameCount[baseName] = nameCount[baseName] + 1
+                    local newCueName = baseName .. " " .. nameCount[baseName]
+                    local oldCue = track.cue[itemGUIDs[j]]
+                    track.cue[itemGUIDs[j]].name = newCueName
+                    local newItemName = '|' .. newCueName .. '|\n|' .. track.execoption .. '|\n|Cue: ' .. oldCue.cuenr .. '|\n|Fadetime: ' .. oldCue.fadetime .. '|'
+                    reaper.GetSetMediaItemInfo_String(reaper.BR_GetMediaItemByGUID(0, itemGUIDs[j]), "P_NOTES", newItemName, true)
+                end
+            end
+        end
+    end
+    getTrackContent()
+end
 function sleep (a) 
     local sec = tonumber(os.clock() + a); 
     while (os.clock() < sec) do 
@@ -1569,6 +1597,7 @@ function renameCuesWindow()
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', 100, 100) then
         renameItems()
+        checkDuplicateCueNames()
     end 
     
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 180)
@@ -1724,6 +1753,7 @@ function deleteTrack() --@Paul Delete funktion
     --reaper.ShowConsoleMsg('\nDELETE TRACK END')
 end
 function renameTrack(newSeqNames)
+    getTrackContent()
     local trackGUIDs = readTrackGUID('used')
     local newName = {}
     for i = 1, #newSeqNames, 1 do
@@ -1741,10 +1771,12 @@ function renameTrack(newSeqNames)
         end
         reaper.GetSetMediaTrackInfo_String(trackItem, 'P_NAME', newName, true)
     end
+    getTrackContent()
 end
 
 ---------------Delete Selection-------------------------------------------------------------------
 function deleteSelection()
+    getTrackContent()
     --reaper.ShowConsoleMsg('\n--DELETE STARTED--')
     local selectedGUIDS = {}
     local trackGUID = readTrackGUID('selected')
@@ -1840,7 +1872,7 @@ function addItem()
             reaper.SetMediaItemInfo_Value(media_item, "D_LENGTH", 10)
         elseif selectedOption == 'Flash Button' or 'Temp Button' then
             local holdnum = tonumber(holdtime)
-            local fadenum = tonumber (fadetime)
+            local fadenum = tonumber(fadetime)
             local endTime = holdnum + fadenum
             reaper.SetMediaItemInfo_Value(media_item, "D_LENGTH", holdnum)
         end
@@ -1848,8 +1880,7 @@ function addItem()
         if selectedTrack ~= nil then
             local itemCount = reaper.CountTrackMediaItems(selectedTrack)
             if itemCount > 0 then
-            -- Use lastItem as the last touched media item
-            reaper.GetSetMediaItemInfo_String(media_item, "P_NOTES", itemName, true)
+                reaper.GetSetMediaItemInfo_String(media_item, "P_NOTES", itemName, true)
             end
         end
         local newCueGUID = reaper.BR_GetMediaItemGUID(media_item)
@@ -1863,11 +1894,40 @@ function addItem()
         tracks[trackGUID].cue[newCueGUID].id = newCueGUID
         tracks[trackGUID].cue[newCueGUID].name = itemName
         tracks[trackGUID].cue[newCueGUID].fadetime = fadetime
-        SetupSendedDataItem (trackGUID,newCueGUID)
+        SetupSendedDataItem(trackGUID, newCueGUID)
         renumberItems()
     end
+    checkDuplicateCueNames()
     getTrackContent()
 end
+
+function renameItems()
+    getTrackContent()
+    local itemName = 'ph'
+    local selectedTrack = reaper.GetSelectedTrack(0, 0)
+    local trackGUID = readTrackGUID('selected')
+    local cueAmmount = 0
+    local cueGUIDs = 'empty'
+    local mediaItem = {}
+    if selectedTrack ~= nil then
+        cueAmmount = reaper.CountTrackMediaItems(selectedTrack)
+        cueGUIDs = readItemGUID(trackGUID)
+    end
+    local cueFade = {}
+    for i = 1, cueAmmount, 1 do
+        mediaItem[i] = reaper.BR_GetMediaItemByGUID(0, cueGUIDs[i])
+    end
+    for i = 1, cueAmmount, 1 do
+        local inputName = replaceSpecialCharacters(NewCueNames[i])
+        local inputFade = NewFadeTimes[i]
+        itemName = '|' ..inputName..'|\n|' ..loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. i .. '|\n|Fadetime: ' ..inputFade .. '|'
+        reaper.GetSetMediaItemInfo_String(mediaItem[i], "P_NOTES", itemName, true)
+    end
+    checkDuplicateCueNames()
+    reaper.ThemeLayout_RefreshAll()
+    getTrackContent()
+end
+
 function renumberItems()
     local selTrack = readTrackGUID('selected')
     local track = reaper.BR_GetMediaTrackByGUID(0, selTrack)
@@ -1932,35 +1992,6 @@ function renumberItems()
             end
         end
     end
-end
-function renameItems()
-    local itemName = 'ph'
-    local selectedTrack = reaper.GetSelectedTrack(0, 0)
-    local trackGUID = readTrackGUID('selected')
-    local cueAmmount = 0
-    local cueGUIDs = 'empty'
-    local mediaItem = {}
-    if selectedTrack ~= nil then
-        cueAmmount = reaper.CountTrackMediaItems(selectedTrack)
-
-        cueGUIDs = readItemGUID(trackGUID)
-    end
-    local cueFade = {}
-    for i = 1, cueAmmount, 1 do
-        --cueFade[i] = loadedtracks[trackGUID].cue[cueGUIDs[i]].fadetime
-        mediaItem[i] = reaper.BR_GetMediaItemByGUID(0, cueGUIDs[i])
-    end
-    for i = 1, cueAmmount, 1 do
-            local inputName = replaceSpecialCharacters(NewCueNames[i])
-            local inputFade = NewFadeTimes[i]
-            itemName = '|' ..inputName..'|\n|' ..loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. i .. '|\n|Fadetime: ' ..inputFade .. '|'
-
-            reaper.GetSetMediaItemInfo_String(mediaItem[i], "P_NOTES", itemName, true)
-    
-        
-    end
-    reaper.ThemeLayout_RefreshAll()
-    --reaper.ShowConsoleMsg('\nrenaming ENd')
 end
 function moveItem(time)
     --reaper.ShowConsoleMsg('\nMOVE STARTED')
