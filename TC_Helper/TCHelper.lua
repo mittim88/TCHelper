@@ -81,6 +81,7 @@ local oldusedTracks = nil
 local mainDocked = false
 local cueDocked = false
 local trackDocked = false
+local firstopened = false
 local mainDockID = tonumber(reaper.GetExtState("TCHelper", "MainDockID")) or 0
 local cueDockID = tonumber(reaper.GetExtState("TCHelper", "CueDockID")) or 0
 local trackDockID = tonumber(reaper.GetExtState("TCHelper", "TrackDockID")) or 0
@@ -1601,7 +1602,7 @@ end
 
 function renameTrackWindow()
     getTrackContent()
-    local spaceBtn = 50
+    local spaceBtn = 20
     local paneWidth = 220
     local usedTracks = readTrackGUID('used')
     local seqIDs = {}
@@ -1617,8 +1618,8 @@ function renameTrackWindow()
     for i = 1, #usedTracks, 1 do
         seqIDs[i] = loadedtracks[usedTracks[i]].seqID
     end
+    reaper.ImGui_Text(ctx, 'Sequence Names')
     if ImGui.BeginChild(ctx, 'left pane', paneWidth, 0, true) then
-        reaper.ImGui_Text(ctx, 'Sequence Names')
 
         for i = 1, #usedTracks, 1 do
             ImGui.SetNextItemWidth(ctx, 150)
@@ -1632,14 +1633,6 @@ function renameTrackWindow()
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', 100, 100) then
         renameTrack(NewSeqNames)
-    end 
-    reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 180)
-    if reaper.ImGui_Button(ctx, 'Reload Data', 100, 100) then
-        --reaper.ShowConsoleMsg('\nLOAD')
-        local validTracks = checkTCHelperTracks()
-        if validTracks == true then
-            getSeqNames()
-        end
     end 
 end
 function renameCuesWindow()
@@ -1708,17 +1701,6 @@ function renameCuesWindow()
     end 
     
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 180)
-    -- if reaper.ImGui_Button(ctx, 'Reload data', 100, 100) then
-    --  --reaper.ShowConsoleMsg('\nLOAD')
-    --     local validTracks = checkTCHelperTracks()
-    --     if validTracks == true then
-    --         local selTrack = readTrackGUID('selected')
-    --         seqName = loadedtracks[selTrack].name
-    --         NewCueNames = getCueNames()
-    --         NewFadeTimes = getFadeTimes()
-    --     else
-    --     end
-    -- end 
 end
 function openCuesWindow()
     ImGui.SetNextWindowSize(ctx, 400, 440, ImGui.Cond_FirstUseEver())
@@ -1737,6 +1719,11 @@ function openCuesWindow()
     return cuesChecked
 end
 function openTrackWindow()
+    ImGui.SetNextWindowSize(ctx, 400, 440, ImGui.Cond_FirstUseEver())
+    if not trackDocked then
+        reaper.ImGui_SetNextWindowDockID(ctx, trackDockID, reaper.ImGui_Cond_FirstUseEver())
+        trackDocked = true
+    end
     visible, seqChecked = ImGui.Begin(ctx, 'Sequence Data', true, ImGui.WindowFlags_MenuBar())
     if visible then
         renameTrackWindow()
@@ -2965,6 +2952,11 @@ if visible then
     mainDockID = reaper.ImGui_GetWindowDockID(ctx)
     reaper.SetExtState("TCHelper", "DockID", tostring(mainDockID), true)
     reaper.ImGui_End(ctx)
+end
+if firstopened == false then
+    openCuesWindow()
+    openTrackWindow()
+    firstopened = true
 end
 if cuesChecked == true then
     openCuesWindow()
