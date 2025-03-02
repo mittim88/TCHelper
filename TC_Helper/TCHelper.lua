@@ -76,6 +76,14 @@ local sendedData = {}
 local dummytrack = {}
 local clipboard = {}
 local previousTrackGUID = nil
+local oldusedTracks = nil
+
+local mainDocked = false
+local cueDocked = false
+local trackDocked = false
+local mainDockID = tonumber(reaper.GetExtState("TCHelper", "MainDockID")) or 0
+local cueDockID = tonumber(reaper.GetExtState("TCHelper", "CueDockID")) or 0
+local trackDockID = tonumber(reaper.GetExtState("TCHelper", "TrackDockID")) or 0
 dummytrack.id = 'dummyTrackID'
 dummytrack.name = 'dummySeqName'
 dummytrack.execID = 'dummyExecID'
@@ -1590,15 +1598,24 @@ function TempItemWindow()
     ImGui.Text(ctx, headerText)
 end
 -----------------RENAMEING DATA WINDOWS-------------------------------------------------------------
-function renameTrackWindow() --@Paul das ist das rename Track fenster
+
+function renameTrackWindow()
+    getTrackContent()
     local spaceBtn = 50
     local paneWidth = 220
     local usedTracks = readTrackGUID('used')
     local seqIDs = {}
+    if oldusedTracks ~= usedTracks then
+        getSeqNames()
+        oldusedTracks = usedTracks
+    end
     if not app.layout then
         app.layout = {
             selected = 0,
         }
+    end
+    for i = 1, #usedTracks, 1 do
+        seqIDs[i] = loadedtracks[usedTracks[i]].seqID
     end
     if ImGui.BeginChild(ctx, 'left pane', paneWidth, 0, true) then
         reaper.ImGui_Text(ctx, 'Sequence Names')
@@ -1629,62 +1646,60 @@ function renameCuesWindow()
     local spaceBtn = 20
     local paneWidth = 450
     local tcTrack = readTrackGUID('selected')
-
+    if tcTrack == nil then
+        reaper.ImGui_Text(ctx, 'No track selected')
+        return
+    end
     if previousTrackGUID ~= tcTrack then
         NewCueNames = getCueNames()
         NewFadeTimes = getFadeTimes()
         previousTrackGUID = tcTrack
     end
 
-    if tcTrack == false then
-        reaper.ImGui_Text(ctx, 'No track selected')
-    else
-        if not app.layout then
-            app.layout = {
-                selected = 0,
-            }
-        end
-        seqName = loadedtracks[tcTrack].name or "No track"
-        -- if not NewCueNames or not NewFadeTimes then
-        --     NewCueNames = getCueNames()
-        --     NewFadeTimes = getFadeTimes()
-        -- end
-        reaper.ImGui_Text(ctx,'Selected track: '..seqName)
-        if ImGui.BeginChild(ctx, 'left pane', paneWidth, 0, true) then
-            reaper.ImGui_SetCursorPos(ctx, 50,10)
-            reaper.ImGui_Text(ctx, 'Cuenames')
-            reaper.ImGui_SetCursorPos(ctx,250,10)
-            reaper.ImGui_Text(ctx, 'Fadetimes')
-            local j = 0
-            for i = 1, #NewCueNames, 1 do
-                local cueID
-                if i < 10 then
-                    cueID = string.format('%02d', i)
-                else
-                    cueID = i
-                end
-                ImGui.SetNextItemWidth(ctx, 100)
-                local rv1
-                rv1, NewCueNames[i] = reaper.ImGui_InputText(ctx, 'Cue-'..cueID, NewCueNames[i])
-                reaper.ImGui_SameLine(ctx)
-                ImGui.SetNextItemWidth(ctx, 50)
-                local rv2
-                rv2, NewFadeTimes[i] = reaper.ImGui_InputText(ctx, 'Fade-'..cueID, NewFadeTimes[i])
-                reaper.ImGui_SameLine(ctx)
-                
-
-                if reaper.ImGui_Button(ctx, 'jump '..i, 80,20) then
-                    local trackItem = reaper.BR_GetMediaTrackByGUID( 0, tcTrack )
-                    local item = reaper.GetTrackMediaItem(trackItem, j)
-                    local rv, itemGUID = reaper.GetSetMediaItemInfo_String(item, "GUID", "", false)
-                    local newCursorPos = loadedtracks[tcTrack].cue[itemGUID].itemStart
-                    setCursorToItem(newCursorPos)
-                    --reaper.ShowConsoleMsg('\n Select: '..itemGUID)
-                end 
-                j = j + 1
+    if not app.layout then
+        app.layout = {
+            selected = 0,
+        }
+    end
+    seqName = loadedtracks[tcTrack].name or "No track"
+    -- if not NewCueNames or not NewFadeTimes then
+    --     NewCueNames = getCueNames()
+    --     NewFadeTimes = getFadeTimes()
+    -- end
+    reaper.ImGui_Text(ctx,'Selected track: '..seqName)
+    if ImGui.BeginChild(ctx, 'left pane', paneWidth, 0, true) then
+        reaper.ImGui_SetCursorPos(ctx, 50,10)
+        reaper.ImGui_Text(ctx, 'Cuenames')
+        reaper.ImGui_SetCursorPos(ctx,250,10)
+        reaper.ImGui_Text(ctx, 'Fadetimes')
+        local j = 0
+        for i = 1, #NewCueNames, 1 do
+            local cueID
+            if i < 10 then
+                cueID = string.format('%02d', i)
+            else
+                cueID = i
             end
-            ImGui.EndChild(ctx)
+            ImGui.SetNextItemWidth(ctx, 100)
+            local rv1
+            rv1, NewCueNames[i] = reaper.ImGui_InputText(ctx, 'Cue-'..cueID, NewCueNames[i])
+            reaper.ImGui_SameLine(ctx)
+            ImGui.SetNextItemWidth(ctx, 50)
+            local rv2
+            rv2, NewFadeTimes[i] = reaper.ImGui_InputText(ctx, 'Fade-'..cueID, NewFadeTimes[i])
+            reaper.ImGui_SameLine(ctx)
+            
+            if reaper.ImGui_Button(ctx, 'jump '..i, 80,20) then
+                local trackItem = reaper.BR_GetMediaTrackByGUID( 0, tcTrack )
+                local item = reaper.GetTrackMediaItem(trackItem, j)
+                local rv, itemGUID = reaper.GetSetMediaItemInfo_String(item, "GUID", "", false)
+                local newCursorPos = loadedtracks[tcTrack].cue[itemGUID].itemStart
+                setCursorToItem(newCursorPos)
+                --reaper.ShowConsoleMsg('\n Select: '..itemGUID)
+            end 
+            j = j + 1
         end
+        ImGui.EndChild(ctx)
     end
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', 100, 100) then
@@ -1706,31 +1721,30 @@ function renameCuesWindow()
     -- end 
 end
 function openCuesWindow()
-
     ImGui.SetNextWindowSize(ctx, 400, 440, ImGui.Cond_FirstUseEver())
-    --local selTrack = readTrackGUID('selected')
-    --seqName = loadedtracks[selTrack].name
-    visible,cuesChecked = ImGui.Begin(ctx, 'Cue Data', true, ImGui.WindowFlags_MenuBar())
+    if not cueDocked then
+        reaper.ImGui_SetNextWindowDockID(ctx, cueDockID, reaper.ImGui_Cond_FirstUseEver())
+        cueDocked = true
+    end
+    visible, cuesChecked = ImGui.Begin(ctx, 'Cue Data', true, ImGui.WindowFlags_MenuBar())
     if visible then
         renameCuesWindow()
         getTrackContent()
+        cueDockID = reaper.ImGui_GetWindowDockID(ctx)
+        reaper.SetExtState("TCHelper", "CueDockID", tostring(cueDockID), true)
         reaper.ImGui_End(ctx)
     end
-    
     return cuesChecked
 end
 function openTrackWindow()
-
-    ImGui.SetNextWindowSize(ctx, 400, 440, ImGui.Cond_FirstUseEver())
-    --local selTrack = readTrackGUID('selected')
-    --seqName = loadedtracks[selTrack].name
-    visible,seqChecked = ImGui.Begin(ctx, 'Sequence Data', true, ImGui.WindowFlags_MenuBar())
+    visible, seqChecked = ImGui.Begin(ctx, 'Sequence Data', true, ImGui.WindowFlags_MenuBar())
     if visible then
         renameTrackWindow()
         getTrackContent()
+        trackDockID = reaper.ImGui_GetWindowDockID(ctx)
+        reaper.SetExtState("TCHelper", "TrackDockID", tostring(trackDockID), true)
         reaper.ImGui_End(ctx)
     end
-   
     return seqChecked
 end
 function openConnectionWindow()
@@ -2816,7 +2830,7 @@ function sendToConsoleMA2(OscCommands)
     --sendedData = copy3(loadedtracks)
     --reaper.ShowConsoleMsg('\nEND OF SEND TO CONSOLE')
 end
-local docked = false
+
 -- local dock = -3
 checkSWS()
 InitiateSendedData()
@@ -2940,14 +2954,16 @@ local function loop()
 
 reaper.ImGui_SetNextWindowSize(ctx, 200, 80, reaper.ImGui_Cond_FirstUseEver())
 ---------- DOCK
-if not docked then
+if not mainDocked then
     --local dock_id = reaper.ImGui_GetID(ctx, "bottom_left")
-    reaper.ImGui_SetNextWindowDockID(ctx, 3, reaper.ImGui_Cond_FirstUseEver())
-    docked = true
+    reaper.ImGui_SetNextWindowDockID(ctx, mainDockID, reaper.ImGui_Cond_FirstUseEver())
+    mainDocked = true
 end
 local visible, open = reaper.ImGui_Begin(ctx, script_title, true, flags)
 if visible then
     TCHelper_Window()
+    mainDockID = reaper.ImGui_GetWindowDockID(ctx)
+    reaper.SetExtState("TCHelper", "DockID", tostring(mainDockID), true)
     reaper.ImGui_End(ctx)
 end
 if cuesChecked == true then
