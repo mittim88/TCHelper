@@ -1627,7 +1627,7 @@ function renameTrackWindow() --@Paul das ist das rename Track fenster
 end
 function renameCuesWindow()
     local spaceBtn = 20
-    local paneWidth = 400
+    local paneWidth = 450
     local tcTrack = readTrackGUID('selected')
 
     if previousTrackGUID ~= tcTrack then
@@ -1673,7 +1673,7 @@ function renameCuesWindow()
                 reaper.ImGui_SameLine(ctx)
                 
 
-                if reaper.ImGui_Button(ctx, 'jump '..i, 55,20) then
+                if reaper.ImGui_Button(ctx, 'jump '..i, 80,20) then
                     local trackItem = reaper.BR_GetMediaTrackByGUID( 0, tcTrack )
                     local item = reaper.GetTrackMediaItem(trackItem, j)
                     local rv, itemGUID = reaper.GetSetMediaItemInfo_String(item, "GUID", "", false)
@@ -1693,17 +1693,17 @@ function renameCuesWindow()
     end 
     
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 180)
-    if reaper.ImGui_Button(ctx, 'Reload data', 100, 100) then
-     --reaper.ShowConsoleMsg('\nLOAD')
-        local validTracks = checkTCHelperTracks()
-        if validTracks == true then
-            local selTrack = readTrackGUID('selected')
-            seqName = loadedtracks[selTrack].name
-            NewCueNames = getCueNames()
-            NewFadeTimes = getFadeTimes()
-        else
-        end
-    end 
+    -- if reaper.ImGui_Button(ctx, 'Reload data', 100, 100) then
+    --  --reaper.ShowConsoleMsg('\nLOAD')
+    --     local validTracks = checkTCHelperTracks()
+    --     if validTracks == true then
+    --         local selTrack = readTrackGUID('selected')
+    --         seqName = loadedtracks[selTrack].name
+    --         NewCueNames = getCueNames()
+    --         NewFadeTimes = getFadeTimes()
+    --     else
+    --     end
+    -- end 
 end
 function openCuesWindow()
 
@@ -2816,7 +2816,7 @@ function sendToConsoleMA2(OscCommands)
     --sendedData = copy3(loadedtracks)
     --reaper.ShowConsoleMsg('\nEND OF SEND TO CONSOLE')
 end
-local dock = 3
+local docked = false
 -- local dock = -3
 checkSWS()
 InitiateSendedData()
@@ -2940,9 +2940,10 @@ local function loop()
 
 reaper.ImGui_SetNextWindowSize(ctx, 200, 80, reaper.ImGui_Cond_FirstUseEver())
 ---------- DOCK
-if dock then
-    reaper.ImGui_SetNextWindowDockID(ctx, dock)
-    dock = nil
+if not docked then
+    --local dock_id = reaper.ImGui_GetID(ctx, "bottom_left")
+    reaper.ImGui_SetNextWindowDockID(ctx, 3, reaper.ImGui_Cond_FirstUseEver())
+    docked = true
 end
 local visible, open = reaper.ImGui_Begin(ctx, script_title, true, flags)
 if visible then
