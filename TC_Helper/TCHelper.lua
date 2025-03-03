@@ -6,7 +6,7 @@
 
 
 local mode2BETA = false
-local version = '3.0.4'
+local version = 'BETA 3.0.4'
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
 local testcmd2 = 'Echo --CONNECTION ESTABLISHED--'
 local script_title = 'TCHelper'
@@ -85,6 +85,8 @@ local firstopened = false
 local mainDockID = tonumber(reaper.GetExtState("TCHelper", "MainDockID")) or 0
 local cueDockID = tonumber(reaper.GetExtState("TCHelper", "CueDockID")) or 0
 local trackDockID = tonumber(reaper.GetExtState("TCHelper", "TrackDockID")) or 0
+local BigLogoWidth = 110
+local BigLogoHeight = 85
 dummytrack.id = 'dummyTrackID'
 dummytrack.name = 'dummySeqName'
 dummytrack.execID = 'dummyExecID'
@@ -1328,6 +1330,21 @@ function ToolsWindow()
     local mmSeconds = 0
     local ssfloat = 0
     local ffSeconds = 0
+    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
+    local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
+    -- Fenstergröße abrufen
+    local windowWidth, windowHeight = reaper.ImGui_GetWindowSize(ctx)
+    
+    -- X-Position des Logos berechnen
+    local logoX = (windowWidth - BigLogoWidth) / 2
+
+    -- Bild anzeigen und skalieren
+    if logoImage_texture then
+        reaper.ImGui_SetCursorPos(ctx, logoX, 5)
+        reaper.ImGui_Image(ctx, logoImage_texture, BigLogoWidth, BigLogoHeight) 
+    else
+        reaper.ShowMessageBox('Bild konnte nicht geladen werden.', 'Fehler', 0)
+    end
    --ImGui.SeparatorText(ctx, 'Selection Tools')
    reaper.ImGui_SetCursorPos(ctx, timetextX, timetextY)
     ImGui.Text(ctx, framerateText)
@@ -1405,10 +1422,6 @@ function ToolsWindow()
             selectedTrackOption = selOptions[i]
         end
     end
-
-    --TC HELPER NAME + Mode
-   reaper.ImGui_SetCursorPos(ctx,toptextXoffset, 10 + toptextYoffset)
-   ImGui.Text(ctx, headerText)
 end
 function CueListSetupWindow()
     local buttonX = 10
@@ -1416,8 +1429,23 @@ function CueListSetupWindow()
     local buttonWidth = 120
     local buttonHeight = 80
     local buttonSpace = 10
-
+    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
+    local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     ImGui.SeparatorText(ctx, 'SETUP CUELIST')
+    
+    -- Fenstergröße abrufen
+    local windowWidth, windowHeight = reaper.ImGui_GetWindowSize(ctx)
+    
+    -- X-Position des Logos berechnen
+    local logoX = (windowWidth - BigLogoWidth) / 2
+
+    -- Bild anzeigen und skalieren
+    if logoImage_texture then
+        reaper.ImGui_SetCursorPos(ctx, logoX, 5)
+        reaper.ImGui_Image(ctx, logoImage_texture, BigLogoWidth, BigLogoHeight) 
+    else
+        reaper.ShowMessageBox('Bild konnte nicht geladen werden.', 'Fehler', 0)
+    end
     ---------------INPUTS---------------------------------------------------------------
     ---------------Input Cuelist Name---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 300)
@@ -1484,7 +1512,7 @@ function CueListSetupWindow()
             selectedExecOption = 1,
         }
     end
-    reaper.ImGui_SetCursorPos(ctx, 9, 110)
+    reaper.ImGui_SetCursorPos(ctx, 9, 120)
     if ImGui.Button(ctx, 'Select exec option') then
         ImGui.OpenPopup(ctx, 'my_select_popup')
     end
@@ -1505,15 +1533,27 @@ function CueListSetupWindow()
             selectedBtnOption = btnNames[i]
         end
     end
-     --TC HELPER NAME + Mode
-   reaper.ImGui_SetCursorPos(ctx,toptextXoffset, 10 + toptextYoffset)
-   ImGui.Text(ctx, headerText)
+   
 end
 ------------------------------------------------------------------------------
 ---------------ADD CUE WINDOW---------------------------------------------------------------
 function CueItemWindow()
-    
+    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
+    local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     ImGui.SeparatorText(ctx, 'SETUP EVENT')
+    -- Fenstergröße abrufen
+    local windowWidth, windowHeight = reaper.ImGui_GetWindowSize(ctx)
+    
+    -- X-Position des Logos berechnen
+    local logoX = (windowWidth - BigLogoWidth) / 2
+
+    -- Bild anzeigen und skalieren
+    if logoImage_texture then
+        reaper.ImGui_SetCursorPos(ctx, logoX, 5)
+        reaper.ImGui_Image(ctx, logoImage_texture, BigLogoWidth, BigLogoHeight) 
+    else
+        reaper.ShowMessageBox('Bild konnte nicht geladen werden.', 'Fehler', 0)
+    end
     ---------------Input Cuelist Name---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 300)
     rv, inputCueName = reaper.ImGui_InputText(ctx, 'Cuename', inputCueName)
@@ -1583,9 +1623,6 @@ function CueItemWindow()
     end 
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
-    --TC HELPER NAME + Mode
-    reaper.ImGui_SetCursorPos(ctx,toptextXoffset, 10 + toptextYoffset)
-    ImGui.Text(ctx, headerText)
 end
 function TempItemWindow()
     ImGui.SeparatorText(ctx, 'SETUP EVENT')
