@@ -1745,7 +1745,8 @@ function renameCuesWindow()
         checkDuplicateCueNames()
     end 
     
-    reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 180)
+    -- Dummy-Komponente hinzufügen, um die Fenstergrenzen zu validieren
+    reaper.ImGui_Dummy(ctx, 0, 0)
 end
 function openCuesWindow()
     ImGui.SetNextWindowSize(ctx, 400, 440, ImGui.Cond_FirstUseEver())
@@ -1938,40 +1939,40 @@ function deleteSelection()
             table.insert(selectedGUIDS, loadedGUID)
         end
         for i = #selectedGUIDS, 1, -1 do
-            local cueName = loadedtracks[trackGUID].cue[selectedGUIDS[i]].name
-            local cueListName = loadedtracks[trackGUID].name
-            local trackID = loadedtracks[trackGUID].trackNr
-            -- reaper.ShowConsoleMsg('\nCueName '..i..': '..cueName)
-            -- reaper.ShowConsoleMsg('\nCueListName '..i..': '..cueListName)
-            if liveupdatebox == true then
-                if loadedtracks[trackGUID].execoption == 'Cue List' then
-                    
-                    local seqMessage = 'Delete Sequence "'..cueListName..'" Cue "'..cueName..'" /nc'
-                    local TCMessage = 'Delete Timecode ' ..tcID ..'.1.'.. trackID .. '.1.1.'..loadedtracks[trackGUID].cue[selectedGUIDS[i]].cuenr..' /nc'
-                    -- reaper.ShowConsoleMsg('\n'..seqMessage)
-                    -- reaper.ShowConsoleMsg('\n'..TCMessage)
-                    sendOSC(hostIP, consolePort, seqMessage)    
-                    sendOSC(hostIP, consolePort, TCMessage)   
-                elseif loadedtracks[trackGUID].execoption == 'Flash Button' or 'Temp Button' then
-                    local onNr = loadedtracks[trackGUID].cue[selectedGUIDS[i]].cuenr
-                    local offNr = loadedtracks[trackGUID].cue[selectedGUIDS[i]].cuenr
-                    if onNr == 1 then
-                        onNr = onNr
-                        offNr = offNr
-                    else
-                        onNr = onNr * 2 - 1
-                        offNr = offNr * 2
+            if loadedtracks[trackGUID] and loadedtracks[trackGUID].cue[selectedGUIDS[i]] then
+                local cueName = loadedtracks[trackGUID].cue[selectedGUIDS[i]].name
+                local cueListName = loadedtracks[trackGUID].name
+                local trackID = loadedtracks[trackGUID].trackNr
+                -- reaper.ShowConsoleMsg('\nCueName '..i..': '..cueName)
+                -- reaper.ShowConsoleMsg('\nCueListName '..i..': '..cueListName)
+                if liveupdatebox == true then
+                    if loadedtracks[trackGUID].execoption == 'Cue List' then
+                        local seqMessage = 'Delete Sequence "'..cueListName..'" Cue "'..cueName..'" /nc'
+                        local TCMessage = 'Delete Timecode ' ..tcID ..'.1.'.. trackID .. '.1.1.'..loadedtracks[trackGUID].cue[selectedGUIDS[i]].cuenr..' /nc'
+                        -- reaper.ShowConsoleMsg('\n'..seqMessage)
+                        -- reaper.ShowConsoleMsg('\n'..TCMessage)
+                        sendOSC(hostIP, consolePort, seqMessage)    
+                        sendOSC(hostIP, consolePort, TCMessage)   
+                    elseif loadedtracks[trackGUID].execoption == 'Flash Button' or 'Temp Button' then
+                        local onNr = loadedtracks[trackGUID].cue[selectedGUIDS[i]].cuenr
+                        local offNr = loadedtracks[trackGUID].cue[selectedGUIDS[i]].cuenr
+                        if onNr == 1 then
+                            onNr = onNr
+                            offNr = offNr
+                        else
+                            onNr = onNr * 2 - 1
+                            offNr = offNr * 2
+                        end
+                        local TCMessageOff = 'Delete Timecode ' ..tcID ..'.1.'.. trackID .. '.1.1.'..offNr..' /nc'
+                        local TCMessageOn = 'Delete Timecode ' ..tcID ..'.1.'.. trackID .. '.1.1.'..onNr..' /nc'
+                        sendOSC(hostIP, consolePort, TCMessageOff)
+                        sendOSC(hostIP, consolePort, TCMessageOn)        
+                        local itemCount = getItemCount() 
+                        itemCount = itemCount - 1                    
                     end
-                    local TCMessageOff = 'Delete Timecode ' ..tcID ..'.1.'.. trackID .. '.1.1.'..offNr..' /nc'
-                    local TCMessageOn = 'Delete Timecode ' ..tcID ..'.1.'.. trackID .. '.1.1.'..onNr..' /nc'
-                    sendOSC(hostIP, consolePort, TCMessageOff)
-                    sendOSC(hostIP, consolePort, TCMessageOn)        
-                    local itemCount = getItemCount() 
-                    itemCount = itemCount - 1                    
+
                 end
-                
-            end
-                
+            end    
         end
         for i = 1, #selectedItems, 1 do
             reaper.DeleteTrackMediaItem(reaper.GetMediaItem_Track(selectedItems[i]), selectedItems[i])
