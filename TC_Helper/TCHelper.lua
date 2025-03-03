@@ -86,9 +86,11 @@ local mainDockID = tonumber(reaper.GetExtState("TCHelper", "MainDockID")) or 0
 local cueDockID = tonumber(reaper.GetExtState("TCHelper", "CueDockID")) or 0
 local trackDockID = tonumber(reaper.GetExtState("TCHelper", "TrackDockID")) or 0
 
-local BigLogoWidth = 110
-local BigLogoHeight = 85
-local BigLogoY = 3
+local aboutWindowOpen = false
+
+local BigLogoWidth = 130
+local BigLogoHeight = 110
+local BigLogoY = -10
 dummytrack.id = 'dummyTrackID'
 dummytrack.name = 'dummySeqName'
 dummytrack.execID = 'dummyExecID'
@@ -954,7 +956,8 @@ local function TCHelper_Window()
         if reaper.ImGui_BeginMenu(ctx, 'Menu') then
             --reaper.ImGui_MenuItem(ctx, '(demo menu)', nil, false, false)
             if ImGui.MenuItem(ctx, 'About') then
-                local rv = reaper.ShowMessageBox('Version:\n'..version..'\nmade by: \nLichtwerk\nTim Eschert\nSupport:\ne-mail: support@lichtwerk.info', 'About TC Helper', 0)
+                aboutWindowOpen = true
+                --local rv = reaper.ShowMessageBox('Version:\n'..version..'\nmade by: \nLichtwerk\nTim Eschert\nSupport:\ne-mail: support@lichtwerk.info', 'About TC Helper', 0)
             end
             if ImGui.MenuItem(ctx, 'Merge data') then
                 mergeDataOption()
@@ -1097,6 +1100,61 @@ local function TCHelper_Window()
     end
 end
 local rv
+local function ShowAboutWindow()
+    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
+    local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
+    if aboutWindowOpen then
+        local windowWidth, windowHeight = 300, 400
+        reaper.ImGui_SetNextWindowSize(ctx, windowWidth, windowHeight, reaper.ImGui_Cond_Always())
+        local windowFlags = reaper.ImGui_WindowFlags_NoResize()
+        local visible, open = reaper.ImGui_Begin(ctx, 'About TC Helper', true, windowFlags)
+        if visible then
+            if logoImage_texture then
+                local logoWidth, logoHeight = 200, 150
+                local logoX = (windowWidth - logoWidth) / 2
+                reaper.ImGui_SetCursorPos(ctx, logoX, 20)
+                reaper.ImGui_Image(ctx, logoImage_texture, logoWidth, logoHeight)
+            else
+                reaper.ShowMessageBox('Bild konnte nicht geladen werden.', 'Fehler', 0)
+            end
+
+            local text = 'version: '..version..'\nmade by: Lichtwerk\nTim Eschert\nsupport: support@lichtwerk.info'
+            local lines = {}
+            for line in text:gmatch("[^\n]+") do
+                table.insert(lines, line)
+            end
+
+            local totalTextHeight = #lines * reaper.ImGui_GetTextLineHeight(ctx)
+            local startY = (windowHeight - totalTextHeight) / 2
+            for i, line in ipairs(lines) do
+                local textWidth = reaper.ImGui_CalcTextSize(ctx, line)
+                local textX = (windowWidth - textWidth) / 2
+                local textY = startY + (i - 1) * reaper.ImGui_GetTextLineHeight(ctx)
+                reaper.ImGui_SetCursorPos(ctx, textX, textY)
+                if line:find("Version:") or line:find("made by:") or line:find("Support:") then
+                    --reaper.ImGui_PushFont(ctx, sans_serif_bold)
+                    reaper.ImGui_Text(ctx, line)
+                    --reaper.ImGui_PopFont(ctx)
+                else
+                    reaper.ImGui_Text(ctx, line)
+                end
+            end
+
+            -- Platz für den Button unten im Fenster
+            local buttonWidth, buttonHeight = 60, 30
+            local buttonX = (windowWidth - buttonWidth) / 2
+            local buttonY = windowHeight - buttonHeight - 20
+            reaper.ImGui_SetCursorPos(ctx, buttonX, buttonY)
+            if reaper.ImGui_Button(ctx, 'OK', buttonWidth, buttonHeight) then
+                aboutWindowOpen = false
+            end
+            reaper.ImGui_End(ctx)
+        end
+        if not open then
+            aboutWindowOpen = false
+        end
+    end
+end
 function connectionWindowMode2()
     ---------------INPUTS---------------------------------------------------------------
     ---------------Input IP---------------------------------------------------------------
@@ -1424,8 +1482,8 @@ function ToolsWindow()
     end
 end
 function CueListSetupWindow()
-    local buttonX = 10
-    local buttonY = 150
+    local buttonX = 9
+    local buttonY = 160
     local buttonWidth = 120
     local buttonHeight = 80
     local buttonSpace = 10
@@ -1448,6 +1506,7 @@ function CueListSetupWindow()
     end
     ---------------INPUTS---------------------------------------------------------------
     ---------------Input Cuelist Name---------------------------------------------------------------
+    reaper.ImGui_SetCursorPos(ctx, 9, 80)
     reaper.ImGui_SetNextItemWidth(ctx, 300)
     rv, cueListName = reaper.ImGui_InputText(ctx, 'Cuelist Name', cueListName)
     cueListName = replaceSpecialCharacters(cueListName)
@@ -1470,7 +1529,7 @@ function CueListSetupWindow()
         rv, execID = reaper.ImGui_InputText(ctx, 'Executor ID', execID)
         
     end
-    reaper.ImGui_SetCursorPos(ctx, 700, 80)
+    reaper.ImGui_SetCursorPos(ctx, 500, buttonY)
     
     if reaper.ImGui_Button(ctx, 'Save track config', 145, 50) then
         reaper.SetExtState('trackconfig', 'seqId', seqID , true)
@@ -1512,7 +1571,7 @@ function CueListSetupWindow()
             selectedExecOption = 1,
         }
     end
-    reaper.ImGui_SetCursorPos(ctx, 9, 120)
+    reaper.ImGui_SetCursorPos(ctx, 9, 110)
     if ImGui.Button(ctx, 'Select exec option') then
         ImGui.OpenPopup(ctx, 'my_select_popup')
     end
@@ -1535,7 +1594,6 @@ function CueListSetupWindow()
     end
    
 end
-------------------------------------------------------------------------------
 ---------------ADD CUE WINDOW---------------------------------------------------------------
 function CueItemWindow()
     local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
@@ -1679,9 +1737,6 @@ function TempItemWindow()
     
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
-    --TC HELPER NAME + Mode
-    reaper.ImGui_SetCursorPos(ctx,toptextXoffset, 10 + toptextYoffset)
-    ImGui.Text(ctx, headerText)
 end
 -----------------RENAMEING DATA WINDOWS-------------------------------------------------------------
 
@@ -3063,6 +3118,7 @@ end
 if networkChecked == true then
     openConnectionWindow()
 end
+ShowAboutWindow()
         reaper.ImGui_PopStyleColor(ctx, 57)
         reaper.ImGui_PopStyleVar(ctx, 32)
         reaper.ImGui_PopFont(ctx)
