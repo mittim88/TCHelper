@@ -324,6 +324,35 @@ function replaceSpecialCharacters(inputString)
 
     return inputString
 end
+function checkDuplicateCueNames()
+    getTrackContent()
+    local trackGUID = readTrackGUID('selected')
+    local nameCount = {}
+    
+    local execoption = loadedtracks[trackGUID].execoption or 'unknown'
+    if execoption == 'Cue List' then
+        local itemGUIDs = readItemGUID(trackGUID)
+        for j = 1, #itemGUIDs do
+            local track = loadedtracks[trackGUID]
+            if track and track.cue and track.cue[itemGUIDs[j]] then
+                local cueName = track.cue[itemGUIDs[j]].name
+                -- Entferne den Index, falls vorhanden
+                local baseName = cueName:match("^(.-) %(%d+%)$") or cueName:match("^(.-) %-%d+$") or cueName:match("^(.-) %d+$") or cueName
+                if not nameCount[baseName] then
+                    nameCount[baseName] = 1
+                else
+                    nameCount[baseName] = nameCount[baseName] + 1
+                    local newCueName = baseName .. ' '.. nameCount[baseName]
+                    local oldCue = track.cue[itemGUIDs[j]]
+                    track.cue[itemGUIDs[j]].name = newCueName
+                    local newItemName = '|' .. newCueName .. '|\n|' .. execoption .. '|\n|Cue: ' .. oldCue.cuenr .. '|\n|Fadetime: ' .. oldCue.fadetime .. '|'
+                    reaper.GetSetMediaItemInfo_String(reaper.BR_GetMediaItemByGUID(0, itemGUIDs[j]), "P_NOTES", newItemName, true)
+                end
+            end
+        end
+    end
+    getTrackContent()
+end
 function sleep (a) 
     local sec = tonumber(os.clock() + a); 
     while (os.clock() < sec) do 
@@ -658,10 +687,11 @@ function getCueNames()
     end
     local oldCueName = {}
     for i = 1, itemCount, 1 do
-        
-        oldCueName[i] = loadedtracks[trackID].cue[cueGUIDs[i]].name
-    
-        --reaper.ShowConsoleMsg(oldCueName[i])
+        if loadedtracks[trackID] and loadedtracks[trackID].cue[cueGUIDs[i]] then
+            oldCueName[i] = loadedtracks[trackID].cue[cueGUIDs[i]].name or 'empty'
+        else
+            oldCueName[i] = 'empty'
+        end
     end
     return oldCueName
 end
@@ -686,8 +716,11 @@ function getFadeTimes()
     end
     local oldFadeTime = {}
     for i = 1, itemCount, 1 do
-        oldFadeTime[i] = loadedtracks[trackID].cue[cueGUIDs[i]].fadetime
-        --reaper.ShowConsoleMsg(oldFadeTime[i])
+        if loadedtracks[trackID] and loadedtracks[trackID].cue[cueGUIDs[i]] then
+            oldFadeTime[i] = loadedtracks[trackID].cue[cueGUIDs[i]].fadetime or 0
+        else
+            oldFadeTime[i] = 0
+        end
     end
     return oldFadeTime
 end
@@ -1638,9 +1671,25 @@ end
 function renameCuesWindow()
     local spaceBtn = 20
     local paneWidth = 450
+    local usedTracks = readTrackGUID('used')
     local tcTrack = readTrackGUID('selected')
-    if tcTrack == nil then
-        reaper.ImGui_Text(ctx, 'No track selected')
+
+     -- Überprüfen, ob der ausgewählte Track in den verwendeten Tracks vorhanden ist
+     local trackFound = false
+     for _, track in ipairs(usedTracks) do
+         if track == tcTrack then
+             trackFound = true
+             break
+         end
+     end
+    -- Wenn der ausgewählte Track nicht in den verwendeten Tracks vorhanden ist, setze tcTrack auf den ersten verwendeten Track
+    if not trackFound then
+        tcTrack = usedTracks[1]
+    end
+
+    if tcTrack == nil or trackFound == false then
+        reaper.ImGui_Text(ctx, 'No TCHelper track selected')
+        tcTrack = previousTrackGUID
         return
     end
     if previousTrackGUID ~= tcTrack then
@@ -1655,10 +1704,6 @@ function renameCuesWindow()
         }
     end
     seqName = loadedtracks[tcTrack].name or "No track"
-    -- if not NewCueNames or not NewFadeTimes then
-    --     NewCueNames = getCueNames()
-    --     NewFadeTimes = getFadeTimes()
-    -- end
     reaper.ImGui_Text(ctx,'Selected track: '..seqName)
     if ImGui.BeginChild(ctx, 'left pane', paneWidth, 0, true) then
         reaper.ImGui_SetCursorPos(ctx, 50,10)
@@ -1877,7 +1922,6 @@ function renameTrack(newSeqNames)
     end
     getTrackContent()
 end
-
 ---------------Delete Selection-------------------------------------------------------------------
 function deleteSelection()
     getTrackContent()
@@ -1935,7 +1979,8 @@ function deleteSelection()
     else
         reaper.ShowMessageBox("No Cues selected.", "Error", 0)
     end
-
+    NewCueNames = getCueNames()
+    NewFadeTimes = getFadeTimes()
     getTrackContent()
     --reaper.ShowConsoleMsg('\n--DELETE ENDED--')
 end
@@ -2004,7 +2049,6 @@ function addItem()
     checkDuplicateCueNames()
     getTrackContent()
 end
-
 function renameItems()
     getTrackContent()
     local itemName = 'ph'
@@ -2031,7 +2075,6 @@ function renameItems()
     reaper.ThemeLayout_RefreshAll()
     getTrackContent()
 end
-
 function renumberItems()
     local selTrack = readTrackGUID('selected')
     local track = reaper.BR_GetMediaTrackByGUID(0, selTrack)
