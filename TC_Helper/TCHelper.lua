@@ -289,6 +289,38 @@ end
 function consoleMSG(x)
     reaper.ShowConsoleMsg(x..'\n')
 end
+function drawCenteredButton(ctx, text, buttonWidth, buttonHeight)
+    local lines = {}
+    for line in text:gmatch("[^\n]+") do
+        table.insert(lines, line)
+    end
+
+    local maxWidth = 0
+    for _, line in ipairs(lines) do
+        local width = reaper.ImGui_CalcTextSize(ctx, line)
+        if width > maxWidth then
+            maxWidth = width
+        end
+    end
+
+    local windowWidth = reaper.ImGui_GetWindowSize(ctx)
+    local startX = (windowWidth - buttonWidth) / 2
+
+    reaper.ImGui_SetCursorPosX(ctx, startX)
+    if reaper.ImGui_Button(ctx, "", buttonWidth, buttonHeight) then
+        return true
+    end
+
+    for i, line in ipairs(lines) do
+        local lineWidth = reaper.ImGui_CalcTextSize(ctx, line)
+        local lineX = startX + (buttonWidth - lineWidth) / 2
+        local lineY = reaper.ImGui_GetCursorPosY(ctx) + (buttonHeight / #lines) * (i - 1)
+        reaper.ImGui_SetCursorPos(ctx, lineX, lineY)
+        reaper.ImGui_Text(ctx, line)
+    end
+
+    return false
+end
 function defineBash()
     local platform = reaper.GetOS()
     local system = 'empty'
@@ -1513,6 +1545,17 @@ function ToolsWindow()
         end
         reaper.ImGui_SameLine(ctx)
     end 
+    reaper.ImGui_SameLine(ctx)
+    ImGui.PushID(ctx, 1)
+    ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
+    if reaper.ImGui_Button(ctx, '  Delete\nselection', buttonWidth, buttonHeight) then
+        deleteSelection()
+        reaper.ImGui_SameLine(ctx)
+    end 
+    ImGui.PopStyleColor(ctx, 3)
+    ImGui.PopID(ctx)
 end
 function CueListSetupWindow()
     local buttonX = 9
@@ -1659,16 +1702,29 @@ function CueItemWindow()
     reaper.ImGui_SetCursorPos(ctx, 500, toptextYoffset + 55)
     if reaper.ImGui_Button(ctx, 'Add cue', 100, 80) then
         local check = checkTCHelperTracks()
-
+        
         if check == false then
             --consoleMSG('Check False')
         else
             --consoleMSG('Check true')
-
-        addItem()
-        end
+            
+            addItem()
+        end 
+        ---------------Delete Item Button---------------------------------------------------------------
+    end
+    reaper.ImGui_SameLine(ctx)
+    ImGui.PushID(ctx, 1)
+    ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
+    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
+    
+    if reaper.ImGui_Button(ctx, '  Delete\nselection', 100, 80) then
+        deleteSelection()
         reaper.ImGui_SameLine(ctx)
     end 
+    ImGui.PopStyleColor(ctx, 3)
+    ImGui.PopID(ctx)
+    reaper.ImGui_SetCursorPos(ctx, 610, toptextYoffset + 55)
     ---------------Copy Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 500, toptextYoffset + 145)
     if reaper.ImGui_Button(ctx, 'Copy', 100, 80) then
@@ -1686,7 +1742,7 @@ function CueItemWindow()
         reaper.ImGui_SameLine(ctx)
     end 
     ---------------Paste Item Button---------------------------------------------------------------
-    reaper.ImGui_SetCursorPos(ctx, 610, toptextYoffset + 145)
+    reaper.ImGui_SameLine(ctx)
     if reaper.ImGui_Button(ctx, 'Paste', 100, 80) then
         local check = checkTCHelperTracks()
 
@@ -1700,20 +1756,6 @@ function CueItemWindow()
         end
         reaper.ImGui_SameLine(ctx)
     end 
-    ---------------Delete Item Button---------------------------------------------------------------
-    reaper.ImGui_SetCursorPos(ctx, 610, toptextYoffset + 55)
-    
-    ImGui.PushID(ctx, 1)
-    ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
-    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
-    ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
-    
-    if reaper.ImGui_Button(ctx, '  Delete\nselection', 100, 80) then
-        deleteSelection()
-        reaper.ImGui_SameLine(ctx)
-    end 
-    ImGui.PopStyleColor(ctx, 3)
-    ImGui.PopID(ctx)
 end
 function TempItemWindow()
     local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
@@ -1733,7 +1775,7 @@ function TempItemWindow()
          reaper.ShowMessageBox('Bild konnte nicht geladen werden.', 'Fehler', 0)
      end
     ---------------Input Cuelist Name---------------------------------------------------------------
-    reaper.ImGui_SetNextItemWidth(ctx, 300)
+    reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, fadetime = reaper.ImGui_InputText(ctx, 'Fadetime ', fadetime)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, holdtime = reaper.ImGui_InputText(ctx, 'Holdtime in sec', holdtime)
@@ -1743,7 +1785,7 @@ function TempItemWindow()
     
     ---------------Add Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 500, toptextYoffset + 55)
-    if reaper.ImGui_Button(ctx, 'Add buttonpress', 150, 80) then
+    if reaper.ImGui_Button(ctx, '      Add\nbuttonpress', 100, 80) then
         --cueName = 'Cue '..cueNr
         local check = checkTCHelperTracks()
 
@@ -1755,22 +1797,50 @@ function TempItemWindow()
         addItem()
         
         end
-        reaper.ImGui_SameLine(ctx)
     end
     ---------------Delete Item Button---------------------------------------------------------------
-    reaper.ImGui_SetCursorPos(ctx, 660, toptextYoffset + 55)
+    reaper.ImGui_SameLine(ctx)
     ImGui.PushID(ctx, 1)
     ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
-    if reaper.ImGui_Button(ctx, '  Delete\nSelection', 100, 80) then
+    if reaper.ImGui_Button(ctx, '  Delete\nselection', 100, 80) then
         deleteSelection()
         reaper.ImGui_SameLine(ctx)
     end 
-    
-    
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
+     ---------------Copy Item Button---------------------------------------------------------------
+     reaper.ImGui_SetCursorPos(ctx, 500, toptextYoffset + 145)
+     if reaper.ImGui_Button(ctx, 'Copy', 100, 80) then
+         local check = checkTCHelperTracks()
+ 
+         if check == false then
+             --consoleMSG('Check False')
+         else
+             --consoleMSG('Check true')
+ 
+             copySelectedItems()
+ 
+ 
+         end
+         reaper.ImGui_SameLine(ctx)
+     end 
+     ---------------Paste Item Button---------------------------------------------------------------
+     reaper.ImGui_SameLine(ctx)
+     if reaper.ImGui_Button(ctx, 'Paste', 100, 80) then
+         local check = checkTCHelperTracks()
+ 
+         if check == false then
+             --consoleMSG('Check False')
+         else
+             --consoleMSG('Check true')
+ 
+             pasteItems()
+ 
+         end
+         reaper.ImGui_SameLine(ctx)
+     end 
 end
 -----------------RENAMEING DATA WINDOWS-------------------------------------------------------------
 
