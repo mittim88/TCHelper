@@ -85,6 +85,7 @@ local firstopened = false
 local mainDockID = tonumber(reaper.GetExtState("TCHelper", "MainDockID")) or 0
 local cueDockID = tonumber(reaper.GetExtState("TCHelper", "CueDockID")) or 0
 local trackDockID = tonumber(reaper.GetExtState("TCHelper", "TrackDockID")) or 0
+local selectedTrackOption = 'selected Track' -- Standardmäßig aktivierte Option
 
 local aboutWindowOpen = false
 
@@ -833,6 +834,9 @@ function pasteItems()
         return
     end
 
+    -- Aktuelle Play-Cursor-Position
+    local cursorPos = reaper.GetCursorPosition()
+
     -- Schleife durch alle kopierten Media-Items
     for i, itemData in ipairs(clipboard) do
         local itemGUID = itemData.guid
@@ -845,13 +849,16 @@ function pasteItems()
             local originalStart = reaper.GetMediaItemInfo_Value(originalItem, "D_POSITION")
             local originalLength = reaper.GetMediaItemInfo_Value(originalItem, "D_LENGTH")
 
+            -- Neue Startzeit basierend auf der Cursor-Position und dem Timing-Abstand
+            local newStart = cursorPos + (originalStart - reaper.GetMediaItemInfo_Value(reaper.BR_GetMediaItemByGUID(0, clipboard[1].guid), "D_POSITION"))
+
             -- Neues Media-Item erstellen
             local trackID = reaper.BR_GetMediaTrackByGUID(0, originalTrackGUID)
             if trackID then
                 local newItem = reaper.AddMediaItemToTrack(trackID)
                 if newItem then
                     -- Setze die Position und Länge des neuen Items
-                    reaper.SetMediaItemInfo_Value(newItem, "D_POSITION", originalStart)
+                    reaper.SetMediaItemInfo_Value(newItem, "D_POSITION", newStart)
                     reaper.SetMediaItemInfo_Value(newItem, "D_LENGTH", originalLength)
 
                     -- Kopiere die Notizen vom Original-Item
@@ -1387,6 +1394,8 @@ function ToolsWindow()
     local inputwidth = 40
     local timetextX = 20
     local timetextY = 70
+    local buttonHeight = 50
+    local buttonWidth = 80
     local offset = 55
     local Yoffset = 30
     local hhSeconds = 0
@@ -1444,48 +1453,66 @@ function ToolsWindow()
     end
     rv,snapCursorbox = ImGui.Checkbox(ctx, 'Snap cursor to item', snapCursorbox)
     
-    if not popups.popups then
-        popups.popups = {
-            selectedExecOption = 1,
-        }
-    end
-    reaper.ImGui_SetCursorPos(ctx, 500,timetextY)
-    if ImGui.Button(ctx, 'Track option') then
-        ImGui.OpenPopup(ctx, 'my_select_popup')
-    end
-    reaper.ImGui_SameLine(ctx)
-    ImGui.Text(ctx, selOptions[popups.popups.selectedExecOption] or '<None>')
-    if ImGui.BeginPopup(ctx, 'my_select_popup') then
-        ImGui.SeparatorText(ctx, 'Track Option')
-        for i, options in ipairs(selOptions) do
-            if ImGui.Selectable(ctx, options) then
-                popups.popups.selectedExecOption = i
-            end
+
+    -- Track options as checkboxes
+    local yBoxStart = 410
+    reaper.ImGui_SetCursorPos(ctx, yBoxStart, timetextY + Yoffset)
+    ImGui.Text(ctx, 'Track options:')
+    local yAdd = 2
+    for i, option in ipairs(selOptions) do
+        reaper.ImGui_SetCursorPos(ctx, yBoxStart, timetextY + yAdd*Yoffset)
+        local isSelected = (selectedTrackOption == option)
+        if ImGui.Checkbox(ctx, option, isSelected) then
+            selectedTrackOption = option
         end
-        ImGui.EndPopup(ctx)
+        yAdd = yAdd + 1
     end
-    for i = 1, #selOptions, 1 do
-        if popups.popups.selectedExecOption == i then
-            selectedTrackOption = selOptions[i]
-        end
-    end
-    
-    reaper.ImGui_SetCursorPos(ctx, 500, timetextY + Yoffset)
-    ImGui.Text(ctx, '               Select before or after cursor')
-    reaper.ImGui_SetCursorPos(ctx, 500, timetextY + 1.6*Yoffset)
-    if reaper.ImGui_Button(ctx, 'Before', 100, 100) then
+    local xButtonsStart = 550
+    reaper.ImGui_SetCursorPos(ctx, xButtonsStart + 15, timetextY + Yoffset)
+    ImGui.Text(ctx, 'Select on before or after cursor')
+    reaper.ImGui_SetCursorPos(ctx, xButtonsStart, timetextY + 1.6*Yoffset)
+    if reaper.ImGui_Button(ctx, 'Before', buttonWidth, buttonHeight) then
         selectToolsmaller()
     end
     reaper.ImGui_SameLine(ctx)
-    if reaper.ImGui_Button(ctx, 'ALL', 100, 100) then
+    if reaper.ImGui_Button(ctx, 'ALL', buttonWidth, buttonHeight) then
         selectToolall()
     end
     reaper.ImGui_SameLine(ctx)
-    if reaper.ImGui_Button(ctx, 'After', 100, 100) then
+    if reaper.ImGui_Button(ctx, 'After', buttonWidth, buttonHeight) then
         selectToolhigher()
-        
     end
+    ---------------Copy Item Button---------------------------------------------------------------
+    reaper.ImGui_SetCursorPos(ctx, xButtonsStart, toptextYoffset + 155)
+    if reaper.ImGui_Button(ctx, 'Copy', buttonWidth, buttonHeight) then
+        local check = checkTCHelperTracks()
+
+        if check == false then
+            --consoleMSG('Check False')
+        else
+            --consoleMSG('Check true')
+
+            copySelectedItems()
+
+
+        end
+    end 
     reaper.ImGui_SameLine(ctx)
+    ---------------Paste Item Button---------------------------------------------------------------
+    --reaper.ImGui_SetCursorPos(ctx, 550, toptextYoffset + 155)
+    if reaper.ImGui_Button(ctx, 'Paste', buttonWidth, buttonHeight) then
+        local check = checkTCHelperTracks()
+
+        if check == false then
+            --consoleMSG('Check False')
+        else
+            --consoleMSG('Check true')
+
+            pasteItems()
+
+        end
+        reaper.ImGui_SameLine(ctx)
+    end 
 end
 function CueListSetupWindow()
     local buttonX = 9
