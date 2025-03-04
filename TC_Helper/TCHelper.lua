@@ -1333,7 +1333,7 @@ function connectionWindowMode3()
     rv, testcmd3 = reaper.ImGui_InputText(ctx, 'Testcommand', testcmd3)
     ---------------BUTTON---------------------------------------------------------------
     ---------------Test Button---------------------------------------------------------------
-    
+    rv,liveupdatebox = ImGui.Checkbox(ctx, 'Live update to console', liveupdatebox)
     if reaper.ImGui_Button(ctx, '       Save\nNetworkconfig', 121, 50) then
         reaper.SetExtState('network','ip',hostIP,true)
         reaper.SetExtState('network','port',consolePort,true)
@@ -1410,7 +1410,6 @@ function connectionWindowMode3()
     
     
     reaper.ImGui_SetCursorPos(ctx, 500, toptextYoffset + 50)
-    rv,liveupdatebox = ImGui.Checkbox(ctx, 'Live update to console', liveupdatebox)
     
     ---------------Single Update Button---------------------------------------------------------------
     --[[ reaper.ImGui_SetCursorPos(ctx, 300, 190)
@@ -1996,16 +1995,18 @@ function openTrackWindow()
     return seqChecked
 end
 function openConnectionWindow()
+    local windowWidth, windowHeight = 525, 319
+    reaper.ImGui_SetNextWindowSize(ctx, windowWidth, windowHeight, reaper.ImGui_Cond_Always())
+    local windowFlags = reaper.ImGui_WindowFlags_NoResize()
 
-    ImGui.SetNextWindowSize(ctx, 800, 800, ImGui.Cond_FirstUseEver())
-  visible,networkChecked = ImGui.Begin(ctx, 'Connection Settings', true)
-  if visible then
-    if MAmode == 'Mode 3' then
-        connectionWindowMode3()
-    elseif MAmode == 'Mode 2' then
-        connectionWindowMode2()
-    end
-    reaper.ImGui_End(ctx)
+    visible, networkChecked = reaper.ImGui_Begin(ctx, 'Connection Settings', true, windowFlags)
+    if visible then
+        if MAmode == 'Mode 3' then
+            connectionWindowMode3()
+        elseif MAmode == 'Mode 2' then
+            connectionWindowMode2()
+        end
+        reaper.ImGui_End(ctx)
     end
     
     return networkChecked
