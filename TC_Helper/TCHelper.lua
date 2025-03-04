@@ -1428,6 +1428,7 @@ function ToolsWindow()
     local timetextY = 70
     local buttonHeight = 50
     local buttonWidth = 80
+    local xButtonsStart = 550
     local offset = 55
     local Yoffset = 30
     local hhSeconds = 0
@@ -1499,7 +1500,6 @@ function ToolsWindow()
         end
         yAdd = yAdd + 1
     end
-    local xButtonsStart = 550
     reaper.ImGui_SetCursorPos(ctx, xButtonsStart + 15, timetextY + Yoffset)
     ImGui.Text(ctx, 'Select on before or after cursor')
     reaper.ImGui_SetCursorPos(ctx, xButtonsStart, timetextY + 1.6*Yoffset)
@@ -1531,7 +1531,6 @@ function ToolsWindow()
     end 
     reaper.ImGui_SameLine(ctx)
     ---------------Paste Item Button---------------------------------------------------------------
-    --reaper.ImGui_SetCursorPos(ctx, 550, toptextYoffset + 155)
     if reaper.ImGui_Button(ctx, 'Paste', buttonWidth, buttonHeight) then
         local check = checkTCHelperTracks()
 
@@ -1672,6 +1671,9 @@ function CueListSetupWindow()
 end
 ---------------ADD CUE WINDOW---------------------------------------------------------------
 function CueItemWindow()
+    local buttonHeight = 50
+    local buttonWidth = 80
+    local xButtonsStart = 500
     local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     ImGui.SeparatorText(ctx, 'SETUP EVENT')
@@ -1699,8 +1701,8 @@ function CueItemWindow()
     rv, cueNr = reaper.ImGui_InputText(ctx, 'cue nr (will be set automatically)', cueNr)
     
     ---------------Add Item Button---------------------------------------------------------------
-    reaper.ImGui_SetCursorPos(ctx, 500, toptextYoffset + 55)
-    if reaper.ImGui_Button(ctx, 'Add cue', 100, 80) then
+    reaper.ImGui_SetCursorPos(ctx, xButtonsStart, toptextYoffset * 4.5)
+    if reaper.ImGui_Button(ctx, 'Add cue', buttonWidth * 2 + 8, 80) then
         local check = checkTCHelperTracks()
         
         if check == false then
@@ -1712,50 +1714,50 @@ function CueItemWindow()
         end 
         ---------------Delete Item Button---------------------------------------------------------------
     end
+    ---------------Copy Item Button---------------------------------------------------------------
+    reaper.ImGui_SetCursorPos(ctx, xButtonsStart, toptextYoffset + 155)
+    if reaper.ImGui_Button(ctx, 'Copy', buttonWidth, buttonHeight) then
+        local check = checkTCHelperTracks()
+        
+        if check == false then
+            --consoleMSG('Check False')
+        else
+            --consoleMSG('Check true')
+            
+            copySelectedItems()
+            
+            
+        end
+        reaper.ImGui_SameLine(ctx)
+    end 
+    ---------------Paste Item Button---------------------------------------------------------------
+    reaper.ImGui_SameLine(ctx)
+    if reaper.ImGui_Button(ctx, 'Paste', buttonWidth, buttonHeight) then
+        local check = checkTCHelperTracks()
+        
+        if check == false then
+            --consoleMSG('Check False')
+        else
+            --consoleMSG('Check true')
+            
+            pasteItems()
+            
+        end
+        reaper.ImGui_SameLine(ctx)
+    end 
     reaper.ImGui_SameLine(ctx)
     ImGui.PushID(ctx, 1)
     ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.8, 1.0))
     ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 1, 1.0))
     
-    if reaper.ImGui_Button(ctx, '  Delete\nselection', 100, 80) then
+    if reaper.ImGui_Button(ctx, '  Delete\nselection', buttonWidth, buttonHeight) then
         deleteSelection()
         reaper.ImGui_SameLine(ctx)
     end 
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
     reaper.ImGui_SetCursorPos(ctx, 610, toptextYoffset + 55)
-    ---------------Copy Item Button---------------------------------------------------------------
-    reaper.ImGui_SetCursorPos(ctx, 500, toptextYoffset + 145)
-    if reaper.ImGui_Button(ctx, 'Copy', 100, 80) then
-        local check = checkTCHelperTracks()
-
-        if check == false then
-            --consoleMSG('Check False')
-        else
-            --consoleMSG('Check true')
-
-            copySelectedItems()
-
-
-        end
-        reaper.ImGui_SameLine(ctx)
-    end 
-    ---------------Paste Item Button---------------------------------------------------------------
-    reaper.ImGui_SameLine(ctx)
-    if reaper.ImGui_Button(ctx, 'Paste', 100, 80) then
-        local check = checkTCHelperTracks()
-
-        if check == false then
-            --consoleMSG('Check False')
-        else
-            --consoleMSG('Check true')
-
-            pasteItems()
-
-        end
-        reaper.ImGui_SameLine(ctx)
-    end 
 end
 function TempItemWindow()
     local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
