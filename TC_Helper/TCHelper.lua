@@ -77,7 +77,7 @@ local dummytrack = {}
 local clipboard = {}
 local previousTrackGUID = nil
 local oldusedTracks = nil
-
+local eventAdded = false 
 local mainDocked = false
 local cueDocked = false
 local trackDocked = false
@@ -801,14 +801,24 @@ function copySelectedItems()
     -- Leere die Zwischenablage
     clipboard = {}
 
-    -- Anzahl der ausgewählten Media-Items
-    local numSelectedItems = reaper.CountSelectedMediaItems(0)
+    -- Anzahl der Tracks im Projekt
+    local numTracks = reaper.CountTracks(0)
 
-    -- Schleife durch alle ausgewählten Media-Items
-    for i = 0, numSelectedItems - 1 do
-        local selectedItem = reaper.GetSelectedMediaItem(0, i)
-        local rv, itemGUID = reaper.GetSetMediaItemInfo_String(selectedItem, "GUID", "", false)
-        table.insert(clipboard, itemGUID)
+    -- Schleife durch alle Tracks
+    for trackIndex = 0, numTracks - 1 do
+        local track = reaper.GetTrack(0, trackIndex)
+        local trackGUID = reaper.GetTrackGUID(track)
+        -- Anzahl der ausgewählten Media-Items im aktuellen Track
+        local numSelectedItems = reaper.CountTrackMediaItems(track)
+
+        -- Schleife durch alle ausgewählten Media-Items im aktuellen Track
+        for itemIndex = 0, numSelectedItems - 1 do
+            local mediaItem = reaper.GetTrackMediaItem(track, itemIndex)
+            if reaper.IsMediaItemSelected(mediaItem) then
+                local rv, itemGUID = reaper.GetSetMediaItemInfo_String(mediaItem, "GUID", "", false)
+                table.insert(clipboard, {guid = itemGUID, trackGUID = trackGUID})
+            end
+        end
     end
 
     -- Ausgabe zur Bestätigung
@@ -816,21 +826,18 @@ function copySelectedItems()
 end
 function pasteItems()
     getTrackContent()
-    local selTrack = readTrackGUID('selected')
-    --consoleMSG(selTrack)
-    local execoption = loadedtracks[selTrack].execoption
-    --consoleMSG(execoption)
+
     -- Überprüfen, ob die Zwischenablage leer ist
     if #clipboard == 0 then
         reaper.ShowMessageBox("clipboard is empty", "Fehler", 0)
         return
     end
 
-    -- Aktuelle Cursor-Position
-    local cursorPos = reaper.GetCursorPosition()
-
     -- Schleife durch alle kopierten Media-Items
-    for i, itemGUID in ipairs(clipboard) do
+    for i, itemData in ipairs(clipboard) do
+        local itemGUID = itemData.guid
+        local originalTrackGUID = itemData.trackGUID
+
         -- Original-Item finden
         local originalItem = reaper.BR_GetMediaItemByGUID(0, itemGUID)
         if originalItem then
@@ -839,25 +846,22 @@ function pasteItems()
             local originalLength = reaper.GetMediaItemInfo_Value(originalItem, "D_LENGTH")
 
             -- Neues Media-Item erstellen
-            local selectedTrack = reaper.GetSelectedTrack(0, 0)
-            if selectedTrack then
-                local newItem = reaper.AddMediaItemToTrack(selectedTrack)
+            local trackID = reaper.BR_GetMediaTrackByGUID(0, originalTrackGUID)
+            if trackID then
+                local newItem = reaper.AddMediaItemToTrack(trackID)
                 if newItem then
-                    -- Neue Startzeit basierend auf der Cursor-Position und dem Timing-Abstand
-                    local newStart = cursorPos + (originalStart - reaper.GetMediaItemInfo_Value(reaper.BR_GetMediaItemByGUID(0, clipboard[1]), "D_POSITION"))
-
                     -- Setze die Position und Länge des neuen Items
-                    reaper.SetMediaItemInfo_Value(newItem, "D_POSITION", newStart)
+                    reaper.SetMediaItemInfo_Value(newItem, "D_POSITION", originalStart)
                     reaper.SetMediaItemInfo_Value(newItem, "D_LENGTH", originalLength)
 
                     -- Kopiere die Notizen vom Original-Item
                     local rv, notes = reaper.GetSetMediaItemInfo_String(originalItem, "P_NOTES", "", false)
-                    local newNotes = notes:gsub("|([^|]+)|", "|%1|\n|" .. execoption .. "|", 1)
-                    reaper.GetSetMediaItemInfo_String(newItem, "P_NOTES", newNotes, true)
+                    reaper.GetSetMediaItemInfo_String(newItem, "P_NOTES", notes, true)
                 end
             end
             checkDuplicateCueNames()
             getTrackContent()
+            eventAdded = true
         end
     end
     -- Ausgabe zur Bestätigung
@@ -1427,6 +1431,8 @@ function ToolsWindow()
     reaper.ImGui_SameLine(ctx)
     reaper.ImGui_SetNextItemWidth(ctx, inputwidth)
     rv4, inputFF = reaper.ImGui_InputTextWithHint(ctx, 'New items time', 'ff', inputFF)
+
+    reaper.ImGui_SetCursorPos(ctx, timetextX ,timetextY + 80)
     if reaper.ImGui_Button(ctx, 'Set item to time', 200, 50) then
         hhSeconds = tonumber(inputHH) * 3600
         mmSeconds = tonumber(inputMM) * 60
@@ -1438,23 +1444,6 @@ function ToolsWindow()
     end
     rv,snapCursorbox = ImGui.Checkbox(ctx, 'Snap cursor to item', snapCursorbox)
     
-    
-    reaper.ImGui_SetCursorPos(ctx, 500, timetextY + Yoffset)
-    ImGui.Text(ctx, '               Select before or after cursor')
-    reaper.ImGui_SetCursorPos(ctx, 500, timetextY + 1.6*Yoffset)
-    if reaper.ImGui_Button(ctx, 'Before', 100, 100) then
-        selectToolsmaller()
-    end
-    reaper.ImGui_SameLine(ctx)
-    if reaper.ImGui_Button(ctx, 'ALL', 100, 100) then
-        selectToolall()
-    end
-    reaper.ImGui_SameLine(ctx)
-    if reaper.ImGui_Button(ctx, 'After', 100, 100) then
-        selectToolhigher()
-        
-    end
-    reaper.ImGui_SameLine(ctx)
     if not popups.popups then
         popups.popups = {
             selectedExecOption = 1,
@@ -1480,6 +1469,23 @@ function ToolsWindow()
             selectedTrackOption = selOptions[i]
         end
     end
+    
+    reaper.ImGui_SetCursorPos(ctx, 500, timetextY + Yoffset)
+    ImGui.Text(ctx, '               Select before or after cursor')
+    reaper.ImGui_SetCursorPos(ctx, 500, timetextY + 1.6*Yoffset)
+    if reaper.ImGui_Button(ctx, 'Before', 100, 100) then
+        selectToolsmaller()
+    end
+    reaper.ImGui_SameLine(ctx)
+    if reaper.ImGui_Button(ctx, 'ALL', 100, 100) then
+        selectToolall()
+    end
+    reaper.ImGui_SameLine(ctx)
+    if reaper.ImGui_Button(ctx, 'After', 100, 100) then
+        selectToolhigher()
+        
+    end
+    reaper.ImGui_SameLine(ctx)
 end
 function CueListSetupWindow()
     local buttonX = 9
@@ -1720,6 +1726,7 @@ function TempItemWindow()
             --consoleMSG('Check true')
 
         addItem()
+        
         end
         reaper.ImGui_SameLine(ctx)
     end
@@ -1799,10 +1806,11 @@ function renameCuesWindow()
         tcTrack = previousTrackGUID
         return
     end
-    if previousTrackGUID ~= tcTrack then
+    if previousTrackGUID ~= tcTrack  or eventAdded then
         NewCueNames = getCueNames()
         NewFadeTimes = getFadeTimes()
         previousTrackGUID = tcTrack
+        eventAdded = false
     end
 
     if not app.layout then
@@ -1849,7 +1857,6 @@ function renameCuesWindow()
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', 100, 100) then
         renameItems()
-        checkDuplicateCueNames()
     end 
     
     -- Dummy-Komponente hinzufügen, um die Fenstergrenzen zu validieren
@@ -2154,8 +2161,9 @@ function addItem()
         SetupSendedDataItem(trackGUID, newCueGUID)
         renumberItems()
     end
-    checkDuplicateCueNames()
+    --checkDuplicateCueNames()
     getTrackContent()
+    eventAdded = true
 end
 function renameItems()
     getTrackContent()
