@@ -907,6 +907,19 @@ function pasteItems()
     -- Ausgabe zur Bestätigung
     --reaper.ShowConsoleMsg("Eingefügt " .. #clipboard .. " Events an die Cursor-Position.\n")
 end
+function openPDFManual()
+    local pdf_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_data/TCHelper Manual.pdf'
+    local os_name = reaper.GetOS()
+    if os_name:find("OSX") or os_name:find("macOS") then
+        os.execute('open "' .. pdf_path .. '"')
+    elseif os_name:find("Win") then
+        os.execute('start "" "' .. pdf_path .. '"')
+    elseif os_name:find("Linux") then
+        os.execute('xdg-open "' .. pdf_path .. '"')
+    else
+        reaper.ShowMessageBox("Unsupported OS: " .. os_name, "Error", 0)
+    end
+end
 ---SELECTION TOOLS
 function snapCursorToSelection()
     local selectedItem = getFirstTouchedMediaItem()
@@ -998,17 +1011,23 @@ local function TCHelper_Window()
     -- Menu Bar
     if reaper.ImGui_BeginMenuBar(ctx) then
         if reaper.ImGui_BeginMenu(ctx, 'Menu') then
-            --reaper.ImGui_MenuItem(ctx, '(demo menu)', nil, false, false)
             if ImGui.MenuItem(ctx, 'About') then
                 aboutWindowOpen = true
-                --local rv = reaper.ShowMessageBox('Version:\n'..version..'\nmade by: \nLichtwerk\nTim Eschert\nSupport:\ne-mail: support@lichtwerk.info', 'About TC Helper', 0)
             end
             if ImGui.MenuItem(ctx, 'Merge data') then
                 mergeDataOption()
-                local rv = reaper.ShowMessageBox('Merged data', script_title,0)
+                local rv = reaper.ShowMessageBox('Merged data', script_title, 0)
             end
-            
-          reaper.ImGui_EndMenu(ctx)
+            if ImGui.MenuItem(ctx, 'Refresh ReaPack and Browse TCHelper') then
+                refreshAndBrowseTCHelper()
+            end
+            reaper.ImGui_EndMenu(ctx)
+        end
+        if reaper.ImGui_BeginMenu(ctx, 'Help') then
+            if ImGui.MenuItem(ctx, 'Open Manual') then
+                openPDFManual()
+            end
+            reaper.ImGui_EndMenu(ctx)
         end
         if reaper.ImGui_BeginMenu(ctx, 'Edit') then
             if ImGui.MenuItem(ctx, 'Cues') then
@@ -1145,7 +1164,7 @@ local function TCHelper_Window()
 end
 local rv
 local function ShowAboutWindow()
-    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
+    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_data/LogoBig_App1024x768.png'
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     if aboutWindowOpen then
         local windowWidth, windowHeight = 300, 400
@@ -1435,7 +1454,7 @@ function ToolsWindow()
     local mmSeconds = 0
     local ssfloat = 0
     local ffSeconds = 0
-    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
+    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_data/LogoBig_App1024x768.png'
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     -- Fenstergröße abrufen
     
@@ -1562,7 +1581,7 @@ function CueListSetupWindow()
     local buttonWidth = 120
     local buttonHeight = 80
     local buttonSpace = 10
-    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
+    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_data/LogoBig_App1024x768.png'
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     ImGui.SeparatorText(ctx, 'SETUP CUELIST')
     
@@ -1674,7 +1693,7 @@ function CueItemWindow()
     local buttonHeight = 50
     local buttonWidth = 80
     local xButtonsStart = 380
-    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
+    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_data/LogoBig_App1024x768.png'
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     ImGui.SeparatorText(ctx, 'SETUP EVENT')
     -- Fenstergröße abrufen
@@ -1761,7 +1780,7 @@ function TempItemWindow()
     local buttonHeight = 50
     local buttonWidth = 80
     local xButtonsStart = 380
-    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_Images/LogoBig_App1024x768.png'
+    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_data/LogoBig_App1024x768.png'
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     ImGui.SeparatorText(ctx, 'SETUP EVENT')
      -- Fenstergröße abrufen
