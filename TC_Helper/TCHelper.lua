@@ -829,7 +829,6 @@ function defineMA3ModeOnFirstStrartup()
         reaper.SetExtState('console','mode', startupMode, true )
     end
 end
-
 function copySelectedItems()
     getTrackContent()
     -- Leere die Zwischenablage
@@ -1007,7 +1006,9 @@ local function TCHelper_Window()
                 mergeDataOption()
                 local rv = reaper.ShowMessageBox('Merged data', script_title,0)
             end
-            
+            -- if ImGui.MenuItem(ctx, 'Update TCHelper') then
+            --    CheckAndUpdateTCHelper()
+            -- end
           reaper.ImGui_EndMenu(ctx)
         end
         if reaper.ImGui_BeginMenu(ctx, 'Edit') then
