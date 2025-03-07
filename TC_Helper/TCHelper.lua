@@ -1,5 +1,5 @@
 -- @description TCHelper
--- @version 3.0.4
+-- @version 3.1.0
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
@@ -829,7 +829,6 @@ function defineMA3ModeOnFirstStrartup()
         reaper.SetExtState('console','mode', startupMode, true )
     end
 end
-
 function copySelectedItems()
     getTrackContent()
     -- Leere die Zwischenablage
@@ -919,6 +918,11 @@ function openPDFManual()
     else
         reaper.ShowMessageBox("Unsupported OS: " .. os_name, "Error", 0)
     end
+end
+function refreshAndBrowseTCHelper()
+    reaper.ReaPack_BrowsePackages('TCHelper')
+    reaper.ReaPack_ProcessQueue(true)
+
 end
 ---SELECTION TOOLS
 function snapCursorToSelection()
@@ -1018,14 +1022,8 @@ local function TCHelper_Window()
                 mergeDataOption()
                 local rv = reaper.ShowMessageBox('Merged data', script_title, 0)
             end
-            if ImGui.MenuItem(ctx, 'Refresh ReaPack and Browse TCHelper') then
+            if ImGui.MenuItem(ctx, 'Package Browser') then
                 refreshAndBrowseTCHelper()
-            end
-            reaper.ImGui_EndMenu(ctx)
-        end
-        if reaper.ImGui_BeginMenu(ctx, 'Help') then
-            if ImGui.MenuItem(ctx, 'Open Manual') then
-                openPDFManual()
             end
             reaper.ImGui_EndMenu(ctx)
         end
@@ -1082,7 +1080,7 @@ local function TCHelper_Window()
                         --consoleMSG('Mode: '..MAmode)
                     elseif mode2BETA == true then
                         MAmode = 'Mode 2'
-
+                        
                         --consoleMSG('Mode: '..MAmode)
                     end
                 end
@@ -1093,8 +1091,14 @@ local function TCHelper_Window()
                 
                 reaper.ImGui_EndMenu(ctx)
             end
-
-          reaper.ImGui_EndMenu(ctx)
+            
+            reaper.ImGui_EndMenu(ctx)
+        end
+        if reaper.ImGui_BeginMenu(ctx, 'Help') then
+            if ImGui.MenuItem(ctx, 'Manual') then
+                openPDFManual()
+            end
+            reaper.ImGui_EndMenu(ctx)
         end
         reaper.ImGui_EndMenuBar(ctx)
     end
