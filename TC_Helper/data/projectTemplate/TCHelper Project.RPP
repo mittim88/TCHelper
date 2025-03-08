@@ -1,0 +1,460 @@
+<REAPER_PROJECT 0.1 "7.30/macOS-arm64" 1737555478
+  <NOTES 0 2
+  >
+  RIPPLE 0
+  GROUPOVERRIDE 0 0 0
+  AUTOXFADE 129
+  ENVATTACH 3
+  POOLEDENVATTACH 0
+  MIXERUIFLAGS 11 48
+  PEAKGAIN 1
+  FEEDBACK 0
+  PANLAW 1
+  PROJOFFS 0 0 0
+  MAXPROJLEN 0 0
+  GRID 3455 8 1 8 1 0 0 0
+  TIMEMODE 5 5 -1 30 0 5 -1
+  VIDEO_CONFIG 0 0 256
+  PANMODE 3
+  CURSOR 4327.4133930067537
+  ZOOM 0.07279175142108 210 0
+  VZOOMEX 6 0
+  USE_REC_CFG 0
+  RECMODE 1
+  SMPTESYNC 0 30 100 40 1000 300 0 0 1 0 0
+  LOOP 0
+  LOOPGRAN 0 4
+  RECORD_PATH "" ""
+  <RECORD_CFG
+    ZXZhdxgAAQ==
+  >
+  <APPLYFX_CFG
+  >
+  RENDER_FILE ""
+  RENDER_PATTERN ""
+  RENDER_FMT 0 2 0
+  RENDER_1X 0
+  RENDER_RANGE 1 0 0 18 1000
+  RENDER_RESAMPLE 3 0 1
+  RENDER_ADDTOPROJ 0
+  RENDER_STEMS 0
+  RENDER_DITHER 0
+  TIMELOCKMODE 1
+  TEMPOENVLOCKMODE 1
+  ITEMMIX 1
+  DEFPITCHMODE 589824 0
+  TAKELANE 1
+  SAMPLERATE 44100 0 0
+  <RENDER_CFG
+    ZXZhdxgAAQ==
+  >
+  LOCK 16512
+  <METRONOME 6 2
+    VOL 0.25 0.125
+    BEATLEN 4
+    FREQ 800 1600 1
+    SAMPLES "" "" "" ""
+    SPLIGNORE 0 0
+    SPLDEF 2 660 "" 0 ""
+    SPLDEF 3 440 "" 0 ""
+    PATTERN 0 169
+    PATTERNSTR ABBB
+    MULT 1
+  >
+  GLOBAL_AUTO -1
+  TEMPO 90.67439069222421 4 4
+  PLAYRATE 1 0 0.25 4
+  SELECTION 6461.9105773400161 6465.5729986073375
+  SELECTION2 6461.9105773400161 6465.5729986073375
+  MASTERAUTOMODE 0
+  MASTERTRACKHEIGHT 0 0
+  MASTERPEAKCOL 16576
+  MASTERMUTESOLO 0
+  MASTERTRACKVIEW 0 0.6667 0.5 0.5 0 0 0 0 0 0 0 0 0 0
+  MASTERHWOUT 0 0 1 0 0 0 0 -1
+  MASTER_NCH 2 2
+  MASTER_VOLUME 1 0 -1 -1 1
+  MASTER_PANMODE 3
+  MASTER_FX 1
+  MASTER_SEL 0
+  <MASTERPLAYSPEEDENV
+    EGUID {07395F77-1F71-1647-87B1-07E7C962D081}
+    ACT 0 -1
+    VIS 0 1 1
+    LANEHEIGHT 0 0
+    ARM 0
+    DEFSHAPE 0 -1 -1
+  >
+  <TEMPOENVEX
+    EGUID {E36F2053-75FA-5B4E-9210-0FCADB37BD90}
+    ACT 0 -1
+    VIS 1 0 1
+    LANEHEIGHT 0 0
+    ARM 0
+    DEFSHAPE 1 -1 -1
+  >
+  <PROJBAY
+  >
+  <TRACK {4704B385-88E2-1345-9F2E-4005A9B6ABC7}
+    NAME "MULTI VIEW "
+    PEAKCOL 25165952
+    BEAT -1
+    AUTOMODE 0
+    PANLAWFLAGS 3
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 0
+    PLAYOFFS 0 1
+    ISBUS 0 0
+    BUSCOMP 0 0 0 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FIXEDLANES 9 0 0 0 0
+    SEL 0
+    REC 0 0 1 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 0 0 0 0 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {4704B385-88E2-1345-9F2E-4005A9B6ABC7}
+    PERF 0
+    MIDIOUT -1
+    MAINSEND 1 0
+    <FXCHAIN
+      WNDRECT 221 609 1272 439
+      SHOW 0
+      LASTSEL 0
+      DOCKED 0
+      BYPASS 0 0 0
+      <VIDEO_EFFECT "Video processor" ""
+        <CODE
+          |// Grid of videos - automatically draws any number of videos from tracks with grid (version 2)
+          |// License: public domain
+          |// Author: Dr Jonathan A. Kemp
+          |
+          |//@param 1:boss "Lead Track Number" 2 2 10 6 1
+          |//@param 2:Nbig "Lead Grid Size" 1 1 9 5 1
+          |//@param 3:bossexpand "Expand Lead Track" 0 0 1 0.5 0.01
+          |//@param 4:bossfront "Lead to Front" 0 0 1 0.5 1
+          |//@param 5:yposratio "Y Offset" 0 0 1 0.5 0.01
+          |//@param 6:border "Grid Borders" 5 0 720 360 1
+          |//@param 7:presasp "Stretch/Crop/Full" 0.5 0 1 0.5 0.5
+          |//@param 8:portrait "Landscape/Sq/Portrait" 0.5 0 1 0.5 0.5
+          |//@param 9:background "Backdrop Color/Video" 0 0 1 0.5 1
+          |//@param 10:R "Backdrop Red" 0.1 0 1 0.5 0.01
+          |//@param 11:G "Backdrop Green" 0.1 0 1 0.5 0.01
+          |//@param 12:B "Backdrop Blue" 0.5 0 1 0.5 0.01
+          |//@param 13:LeadDoubled "Lead Track Doubled" 0 0 1 0.5 1
+          |
+          |presasp == 0.5 ? (crop = 1; presasp = 0) : crop = 0; //presasp = 0.5 means crop videos
+          |aspect = project_w/project_h; // aspect ratio of project
+          |input_info(input_track(0),src_width,src_height);//Get dimensions of first source video
+          |src_aspect = src_width/src_height;//Aspect ratio of first source video
+          |boss = boss - 1; // boss is now relative to video processor track
+          |ypos = yposratio*project_h;
+          |Ntracks = input_track_count(); // Number of video files
+          |boss>Ntracks ? boss = Ntracks; // If the lead video track set is greater than Ntracks use last
+          |((boss>0)&(bossexpand==1)&(bossfront==1)) ? // if there is a lead track fully expanded on front then plot it
+          |(
+          |            crop == 1 ? //crop code
+          |            (
+          |            input_info(input_track(boss-1),prewidth,preheight);
+          |            project_w/project_h<prewidth/preheight ? //crop from width
+          |             (wsrc_expand = (preheight*(project_w/project_h));//source width
+          |              hsrc_expand = preheight;//source height
+          |              xsrc_expand = (prewidth - wsrc_expand)/2;//source x
+          |              ysrc_expand = 0;)//source y
+          |             : //else crop from height
+          |              (wsrc_expand = prewidth;
+          |              hsrc_expand = (prewidth*(project_h/project_w));
+          |              xsrc_expand = 0;
+          |              ysrc_expand = (preheight - hsrc_expand)/2;);
+          |             )
+          |             :
+          |             (xsrc_expand = 0;ysrc_expand = 0;wsrc_expand = prewidth; hsrc_expand = preheight);
+          |      gfx_blit(
+          |        input_track(boss-1),
+          |        presasp,// preserve aspect ratio
+          |        0, 0, project_w, project_h, // output x, y, width and height
+          |        xsrc_expand,ysrc_expand,wsrc_expand,hsrc_expand // source x, y, width and height
+          |      );
+          |)
+          |: // if there isn't a lead track on front then do the rest of the code
+          |(
+          | gfx_set(0);
+          | gfx_fillrect(0,0,project_w,project_h);
+          | x=0; // Counter for looping
+          | Ntracks > 0 // If there are video tracks
+          | ?
+          | count_tracks = Ntracks + Nbig^2 - 1 + LeadDoubled// Number of grid locations
+          | : //else
+          | count_tracks = 0
+          | ;
+          | portrait == 0
+          | ?// if landscape source videos
+          | (
+          |  xoffset = 0;
+          |  border_h = border;
+          |  border_w = border*aspect;
+          |  height = project_h - border_h;
+          |  width = project_w - border_w;
+          |  cols = ceil((sqrt(count_tracks*aspect/src_aspect)));//Use info on both source video and project aspect ratio
+          |  rows = ceil(count_tracks/cols);
+          |  vHeight = height / cols - border_h; // Video height
+          |  vWidth = width / cols - border_w; // Video Width
+          | )
+          | : portrait == 0.5 ? //else if square grid
+          | (
+          |  xoffset = 0;
+          |  aspect < 1 ?
+          |  (
+          |    rows = ceil(sqrt(count_tracks/aspect));
+          |    cols = ceil(count_tracks/rows);
+          |    ((rows-1)*cols)>=count_tracks ? (rows = rows-1;);//if there's an empty row get rid of it
+          |  )
+          |  :
+          |  (
+          |    cols = ceil(sqrt(count_tracks*aspect));
+          |    rows = ceil(count_tracks/cols);
+          |    ((cols-1)*rows)>=count_tracks ? (cols = cols-1;);//if one less column will do get rid of one
+          |  );
+          |  border_h = border;
+          |  border_w = border*aspect*rows/cols;
+          |  height = project_h - border_h;
+          |  width = project_w - border_w;
+          |  vHeight = height / rows - border_h;
+          |  vWidth = width / cols - border_w;
+          | )
+          | : // else we assume portrait source videos
+          | (
+          |  border_h = border*aspect;
+          |  border_w = border;
+          |  height = project_h - border_h;
+          |  width = project_w - border_w;
+          |  rows = ceil((sqrt(count_tracks*src_aspect/aspect)));//Use info on both source video and project aspect ratio
+          |  cols = ceil(count_tracks/rows);
+          |  rows_alt = rows - 1;
+          |  cols_alt = ceil(count_tracks/rows_alt);
+          |  rows*(aspect^2)>cols_alt ? (cols = cols_alt;rows = rows_alt;); // if reducing rows by one is better
+          |  rows<Nbig ? (rows = Nbig; cols = ceil(count_tracks/rows);); // if number of rows is less than Nbig
+          |  vWidth = width / cols - border_w;
+          |  vHeight = height / rows - border_h;
+          |  aspect < (vHeight/vWidth) // if fitting to width
+          |   ?
+          |   (xoffset = 0;
+          |   vHeight = vWidth*aspect;)
+          |   : // else fitting to height
+          |    (vWidth = vHeight / aspect;
+          |    xoffset = (project_w - (cols*vWidth + (cols+1)*border_w))/2;
+          |  );
+          | );
+          | Nbig>1 ? // if one of the videos is chosen to be big then put lead track in centre
+          |  (
+          |   left_cols = floor((cols - Nbig)/2); // Number of columns before big central video
+          |   top_rows = floor((rows - Nbig)/2); // Number of rows before big central video
+          |  )
+          |  : // else all videos same size then lead tracks stays where it is
+          |  (
+          |   top_rows = floor((boss-1)/cols);
+          |   left_cols = (boss-1) % cols;
+          |  );
+          |  background == 1
+          |    ?
+          |     gfx_blit(0) // If background is 1 then show current track image or video as background
+          |    :
+          |   (
+          |    gfx_set(R,G,B,1); //Set color for background
+          |    gfx_fillrect(0,0,project_w,project_h); // show color as background
+          | );
+          | bossfront==0 // if the lead track is behind plot it first
+          | ?
+          | (
+          |   (boss-1 >= (cols*rows - cols)) // Is it the last line?
+          |     ?
+          |      (
+          |       lastLineCount = (count_tracks-1) % cols + 1; // Number of videos in last row
+          |       lastLineOffset = (project_w - (lastLineCount*vWidth + (lastLineCount+1)*border_w))/2;
+          |       xpos = left_cols*vWidth + lastLineOffset + border_w*left_cols; // x position last line
+          |      )
+          |     :
+          |      xpos = left_cols*vWidth + border_w*left_cols + xoffset; // x position non-last line
+          |      input_info(input_track(boss-1),prewidth,preheight);
+          |      xpos_expand = (1-bossexpand)*(border_w + xpos);
+          |      ypos_expand = (1-bossexpand)*(border_h + vHeight*(top_rows) + border_h*(top_rows) + ypos);
+          |      vWidth_expand = (1-bossexpand)*(Nbig*vWidth+(Nbig-1)*border_w) + bossexpand*project_w;
+          |      vHeight_expand = (1-bossexpand)*(Nbig*vHeight+(Nbig-1)*border_h) + bossexpand*project_h;
+          |      crop == 1 ? //crop code
+          |      (
+          |       vWidth_expand/vHeight_expand<prewidth/preheight ? //crop from width
+          |       (wsrc_expand = (preheight*(vWidth_expand/vHeight_expand));
+          |        hsrc_expand = preheight;
+          |        xsrc_expand = (prewidth - wsrc_expand)/2;
+          |        ysrc_expand = 0;)
+          |       : //else
+          |        (wsrc_expand = prewidth;
+          |        hsrc_expand = (prewidth*(vHeight_expand/vWidth_expand));
+          |        xsrc_expand = 0;
+          |        ysrc_expand = (preheight - hsrc_expand)/2;);
+          |        )
+          |        :
+          |        (
+          |        xsrc_expand = 0;ysrc_expand = 0;wsrc_expand = prewidth; hsrc_expand = preheight;
+          |        );
+          |     //plot code
+          |     gfx_blit(
+          |      input_track(boss-1), presasp,
+          |      xpos_expand, ypos_expand, vWidth_expand, vHeight_expand,
+          |      xsrc_expand,ysrc_expand,wsrc_expand,hsrc_expand
+          |      );
+          | );
+          | bosscount = 0; // Counter for taking into account boss video
+          | loop(count_tracks + LeadDoubled, //main loop
+          |  row = floor(x/cols); // Column position (starts at 0)
+          |  col = x % cols; // Row position (starts at 0)
+          |  lastLineCount = (count_tracks-1) % cols + 1; // Number of videos in last row
+          |  lastLineOffset = (project_w - (lastLineCount*vWidth + (lastLineCount+1)*border_w))/2;
+          |  ((x >= (cols*rows - cols))&(bosscount > Nbig^2 - 2)) // Is it the last line and after any big video?
+          |    ? xpos = col*vWidth + lastLineOffset + border_w*col // last line
+          |    : xpos = col*vWidth + border_w*col + xoffset // non-last line
+          |    ;
+          |   ((row>top_rows-1)&(col>left_cols-1)&(row<top_rows+Nbig)&(col<left_cols+Nbig))
+          |   ? // if the grid number is part of big video
+          |      bosscount = bosscount + 1 // increment counter
+          |    : // else
+          |    x-bosscount+1-LeadDoubled < Ntracks // if video exists
+          |    ?
+          |    (vidnum = x-bosscount+1;
+          |      ((vidnum < boss) | (LeadDoubled)) ? vidnum = vidnum - 1;
+          |     //crop code
+          |     input_info(input_track(vidnum),prewidth,preheight);//get dimensions
+          |     vxpos = border_w + xpos; //x position
+          |     vypos = border_h + vHeight*(row) + border_h*(row) + ypos; //y position
+          |     crop == 1 ? //crop code
+          |     (
+          |     vWidth/vHeight<prewidth/preheight ? //crop from width
+          |      (wsrc = preheight*(vWidth/vHeight);//source width
+          |       hsrc = preheight;//source height
+          |       xsrc = (prewidth - wsrc)/2;//source x
+          |       ysrc = 0;)//source y
+          |      : //else
+          |       (wsrc = prewidth;
+          |       hsrc = prewidth*(vHeight/vWidth);
+          |       xsrc = 0;
+          |       ysrc = (preheight - hsrc)/2;);
+          |       )
+          |       :
+          |       (xsrc = 0; ysrc = 0; wsrc = prewidth; hsrc = preheight);
+          |      //plot code
+          |      gfx_blit(
+          |        input_track(vidnum), presasp,
+          |        vxpos, vypos, vWidth, vHeight,
+          |        xsrc,ysrc,wsrc,hsrc
+          |        );
+          |   );
+          |  x += 1;
+          | );
+          | bossfront==1 //If the boss is in front plot
+          |  ?
+          |  (
+          |   (boss-1 >= (cols*rows - cols)) // Is it the last line?
+          |       ?
+          |        (
+          |         lastLineCount = (count_tracks-1) % cols + 1; // Number of videos in last row
+          |         lastLineOffset = (project_w - (lastLineCount*vWidth + (lastLineCount+1)*border_w))/2;
+          |         xpos = left_cols*vWidth + lastLineOffset + border_w*left_cols; // last line
+          |        )
+          |       : //else not the last line
+          |        xpos = left_cols*vWidth + border_w*left_cols + xoffset; // non-last line
+          |      //crop code
+          |            input_info(input_track(boss-1),prewidth,preheight);
+          |            xpos_expand = (1-bossexpand)*(border_w + xpos);
+          |            ypos_expand = (1-bossexpand)*(border_h + vHeight*(top_rows) + border_h*(top_rows) + ypos);
+          |            vWidth_expand = (1-bossexpand)*(Nbig*vWidth+(Nbig-1)*border_w) + bossexpand*project_w;
+          |            vHeight_expand = (1-bossexpand)*(Nbig*vHeight+(Nbig-1)*border_h) + bossexpand*project_h;
+          |            crop == 1 ? //crop code
+          |             (
+          |             vWidth_expand/vHeight_expand<prewidth/preheight ? //crop from width
+          |             (wsrc_expand = (preheight*(vWidth_expand/vHeight_expand));
+          |              hsrc_expand = preheight;
+          |              xsrc_expand = (prewidth - wsrc_expand)/2;
+          |              ysrc_expand = 0;)
+          |             : //else
+          |              (wsrc_expand = prewidth;
+          |              hsrc_expand = (prewidth*(vHeight_expand/vWidth_expand));
+          |              xsrc_expand = 0;
+          |              ysrc_expand = (preheight - hsrc_expand)/2;);
+          |              )
+          |              :
+          |              (
+          |              xsrc_expand = 0; ysrc_expand = 0; wsrc_expand = prewidth; hsrc_expand = preheight;
+          |              );
+          |            gfx_blit(
+          |               input_track(boss-1), presasp,
+          |               xpos_expand, ypos_expand, vWidth_expand, vHeight_expand,
+          |               xsrc_expand,ysrc_expand,wsrc_expand,hsrc_expand
+          |            );
+          |  );
+          |);
+        >
+        CODEPARM 2 2 0 0 0 2 1 0.5 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+      >
+      PRESETNAME "Combine: Grid of videos"
+      FLOATPOS 0 0 0 0
+      FXID {5F2BD340-61F7-344A-BF00-79EABD7E7F7B}
+      WAK 0 0
+    >
+  >
+  <TRACK {AC8548C6-EE9C-8641-8BA3-39E6CB3DB3FC}
+    NAME "MIDI TC"
+    PEAKCOL 17369735
+    BEAT -1
+    AUTOMODE 0
+    PANLAWFLAGS 3
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
+    IPHASE 0
+    PLAYOFFS 0 1
+    ISBUS 0 0
+    BUSCOMP 0 0 0 0 0
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
+    FIXEDLANES 9 0 0 0 0
+    SEL 0
+    REC 0 0 1 0 0 0 0 0
+    VU 2
+    TRACKHEIGHT 0 0 0 0 0 0 0
+    INQ 0 0 0 0.5 100 0 0 100
+    NCHAN 2
+    FX 1
+    TRACKID {AC8548C6-EE9C-8641-8BA3-39E6CB3DB3FC}
+    PERF 0
+    MIDIOUT 0
+    MAINSEND 1 0
+    <ITEM
+      POSITION 0
+      SNAPOFFS 0
+      LENGTH 18000
+      LOOP 1
+      ALLTAKES 0
+      FADEIN 1 0 0 1 0 0 0
+      FADEOUT 1 0 0 1 0 0 0
+      MUTE 0 0
+      SEL 0
+      IGUID {685A0B20-94AE-EC4E-B2FA-E2E611FCDA3D}
+      IID 8
+      NAME "Timecode Generator"
+      VOLPAN 1 0 0.246167 -1
+      SOFFS 0
+      PLAYRATE 1 1 0 -1 0 0.0025
+      CHANMODE 0
+      GUID {5F27E562-B141-9F42-88CA-A841AE235B0F}
+      <SOURCE LTC
+        STARTTIME 0
+        FRAMERATE 30 0
+        SEND 2
+        USERDATA 0 0 0 0
+      >
+    >
+  >
+  <EXTENSIONS
+  >
+>

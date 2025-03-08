@@ -3,6 +3,11 @@
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
+--   /TC_Helper/data/pdf/*.pdf
+--   /TC_Helper/data/keyMap/*.ReaperKeyMap
+--   /TC_Helper/data/images/*.png
+--   /TC_Helper/data/logo/*.png
+--   /TC_Helper/data/projectTemplate/*.RPP
 
 
 local mode2BETA = false
