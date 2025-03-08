@@ -912,7 +912,28 @@ function pasteItems()
     --reaper.ShowConsoleMsg("Eingefügt " .. #clipboard .. " Events an die Cursor-Position.\n")
 end
 function openPDFManual()
-    local pdf_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_data/TCHelper Manual.pdf'
+    local reaperPath = reaper.GetResourcePath()
+    local pdf_path1 = reaperPath .. '/Scripts/TE Scripts/mittim88 Reaper Repo/TC_Helper/data/pdf/TCHelper Manual.pdf'
+    local pdf_path2 = reaperPath .. '/Scripts/mittim88_ReaScript_Repository/TC_Helper/data/pdf/TCHelper Manual.pdf'
+    local pdf_path = nil
+    
+    -- Überprüfen, ob die Datei im ersten Pfad existiert
+    local file = io.open(pdf_path1, "r")
+    if file then
+        pdf_path = pdf_path1
+        file:close()
+    else
+        -- Überprüfen, ob die Datei im zweiten Pfad existiert
+        file = io.open(pdf_path2, "r")
+        if file then
+            pdf_path = pdf_path2
+            file:close()
+        else
+            reaper.ShowMessageBox("TCHelper Manual.pdf nicht gefunden.", "Fehler", 0)
+            return
+        end
+    end
+
     local os_name = reaper.GetOS()
     if os_name:find("OSX") or os_name:find("macOS") then
         os.execute('open "' .. pdf_path .. '"')
