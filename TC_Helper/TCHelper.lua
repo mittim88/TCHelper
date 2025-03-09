@@ -99,8 +99,14 @@ local dataFolder = 'data/'
 local iconFolder = 'images/'
 local logoFolder = 'logo/'
 local pdfFolder = 'pdf/'
+local keyMapFolder = 'keyMap/'
+local projectTemplateFolder = 'projectTemplate/'
+
 local logoBigName = 'LogoBig_App1024x768.png'
 local manualName = 'TCHelper Manual.pdf'
+local keyMapName = 'TCHelper_Actions.ReaperKeyMap'
+local projectTemplateName = 'TCHelper Project.RPP'
+
 local BigLogoWidth = 130
 local BigLogoHeight = 110
 local BigLogoY = -10
@@ -963,6 +969,47 @@ function isInstalledViaReapack()
         -- reaper.ShowConsoleMsg('Script folder: ' .. script_folder .. '\n')
         return false, script_folder
     end
+end
+function copyReaperTemplate()
+    local reaperPath = reaper.GetResourcePath()
+    local rv, script_Path = isInstalledViaReapack()
+    -- Pfade der Quelldateien
+    local keyMapSource = script_Path .. dataFolder .. keyMapFolder .. keyMapName
+    local projectTemplateSource = script_Path .. dataFolder .. projectTemplateFolder .. projectTemplateName
+
+    -- Pfade der Zielverzeichnisse
+    local keyMapDestination = reaperPath .. "/KeyMaps/"
+    local projectTemplateDestination = reaperPath .. "/ProjectTemplates/"
+    -- consoleMSG('KeyMapSource: '..keyMapSource)
+    -- consoleMSG('KeyMapDestination: '..keyMapDestination)
+    -- consoleMSG('ProjectTemplateSource: '..projectTemplateSource)
+    -- consoleMSG('ProjectTemplateDestination: '..projectTemplateDestination)
+    
+    -- Kopiere die Dateien
+    copyFile(keyMapSource, keyMapDestination)
+    copyFile(projectTemplateSource, projectTemplateDestination)
+    
+    --reaper.ShowMessageBox("Dateien erfolgreich kopiert.", "Erfolg", 0)
+end
+function copyFile(source, destination)
+    local os_name = reaper.GetOS()
+    local command
+
+    if os_name:find("OSX") or os_name:find("macOS") then
+        command = string.format('cp "%s" "%s"', source, destination)
+    elseif os_name:find("Win") then
+        command = string.format('copy "%s" "%s"', source:gsub("/", "\\"), destination:gsub("/", "\\"))
+    elseif os_name:find("Linux") then
+        command = string.format('cp "%s" "%s"', source, destination)
+    else
+        reaper.ShowMessageBox("Unsupported OS: " .. os_name, "Error", 0)
+        return
+    end
+
+    local result = os.execute(command)
+    -- if result ~= 0 then
+    --     reaper.ShowMessageBox("Fehler beim Kopieren der Datei: " .. source.. ' nach: '..destination, "Fehler", 0)
+    -- end
 end
 ---SELECTION TOOLS
 function snapCursorToSelection()
@@ -3184,6 +3231,7 @@ InitiateSendedData()
 getTrackContent()
 checkSendedData()
 defineMA3ModeOnFirstStrartup()
+copyReaperTemplate()
 local flags = reaper.ImGui_WindowFlags_MenuBar()   -- Add Menu bar and remove the rezise feature. 
 local function loop()
     if addonCheck == true then
