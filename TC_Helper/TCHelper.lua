@@ -11,7 +11,7 @@
 
 
 local mode2BETA = false
-local version = 'BETA 3.0.4'
+local version = 'BETA 3.1.0'
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
 local testcmd2 = 'Echo --CONNECTION ESTABLISHED--'
 local script_title = 'TCHelper'
@@ -93,10 +93,18 @@ local trackDockID = tonumber(reaper.GetExtState("TCHelper", "TrackDockID")) or 0
 local selectedTrackOption = 'selected Track' -- Standardmäßig aktivierte Option
 
 local aboutWindowOpen = false
-
+--extData--------------------------------------------------------------------------------------------
+local selectedIcon = ''
+local dataFolder = 'data/'
+local iconFolder = 'images/'
+local logoFolder = 'logo/'
+local pdfFolder = 'pdf/'
+local logoBigName = 'LogoBig_App1024x768.png'
+local manualName = 'TCHelper Manual.pdf'
 local BigLogoWidth = 130
 local BigLogoHeight = 110
 local BigLogoY = -10
+--------------------------------------------------------------- 
 dummytrack.id = 'dummyTrackID'
 dummytrack.name = 'dummySeqName'
 dummytrack.execID = 'dummyExecID'
@@ -110,8 +118,6 @@ dummytrack.cue.fadetime = 'dummyFadetime'
 dummytrack.cue.holdtime = 'dummyHoldTime'
 dummytrack.cue.itemStart = 'dummyitemStart'
 dummytrack.cue.itemEnd = 'dummyitemEnd'
-local selectedIcon = ''
-local iconFolder = 'TCHelper_Images'
 local trackIcon = {}
 trackIcon.name = {}
 trackIcon.name[1] = 'Cuelist.png'
@@ -912,28 +918,8 @@ function pasteItems()
     --reaper.ShowConsoleMsg("Eingefügt " .. #clipboard .. " Events an die Cursor-Position.\n")
 end
 function openPDFManual()
-    local reaperPath = reaper.GetResourcePath()
-    local pdf_path1 = reaperPath .. '/Scripts/TE Scripts/mittim88 Reaper Repo/TC_Helper/data/pdf/TCHelper Manual.pdf'
-    local pdf_path2 = reaperPath .. '/Scripts/mittim88_ReaScript_Repository/TC_Helper/data/pdf/TCHelper Manual.pdf'
-    local pdf_path = nil
-    
-    -- Überprüfen, ob die Datei im ersten Pfad existiert
-    local file = io.open(pdf_path1, "r")
-    if file then
-        pdf_path = pdf_path1
-        file:close()
-    else
-        -- Überprüfen, ob die Datei im zweiten Pfad existiert
-        file = io.open(pdf_path2, "r")
-        if file then
-            pdf_path = pdf_path2
-            file:close()
-        else
-            reaper.ShowMessageBox("TCHelper Manual.pdf nicht gefunden.", "Fehler", 0)
-            return
-        end
-    end
-
+    local rv, script_path = isInstalledViaReapack()
+    local pdf_path = script_path..dataFolder..pdfFolder..manualName
     local os_name = reaper.GetOS()
     if os_name:find("OSX") or os_name:find("macOS") then
         os.execute('open "' .. pdf_path .. '"')
@@ -949,6 +935,34 @@ function refreshAndBrowseTCHelper()
     reaper.ReaPack_BrowsePackages('TCHelper')
     reaper.ReaPack_ProcessQueue(true)
 
+end
+function isInstalledViaReapack()
+    -- Hole den Pfad des aktuellen Skripts
+    local script_path = ({reaper.get_action_context()})[2]
+
+    -- Extrahiere den Ordnerpfad
+    local script_folder = script_path:match("^(.*[\\/])")
+
+    -- Überprüfe, ob ReaPack verfügbar ist
+    if not reaper.ReaPack_GetOwner then
+        reaper.ShowConsoleMsg('ReaPack ist nicht installiert oder die API ist nicht verfügbar\n')
+        return false
+    end
+
+    -- Hole den Besitzer des aktuellen Skripts (ReaPack-Paket)
+    local owner = reaper.ReaPack_GetOwner(script_path)
+    if owner then
+        -- reaper.ShowConsoleMsg('Script is installed via ReaPack\n')
+        -- reaper.ShowConsoleMsg('Script path: ' .. script_path .. '\n')
+        -- reaper.ShowConsoleMsg('Script folder: ' .. script_folder .. '\n')
+
+        return true, script_folder
+    else
+        -- reaper.ShowConsoleMsg('Script is not installed via ReaPack\n')
+        -- reaper.ShowConsoleMsg('Script path: ' .. script_path .. '\n')
+        -- reaper.ShowConsoleMsg('Script folder: ' .. script_folder .. '\n')
+        return false, script_folder
+    end
 end
 ---SELECTION TOOLS
 function snapCursorToSelection()
@@ -1194,7 +1208,8 @@ local function TCHelper_Window()
 end
 local rv
 local function ShowAboutWindow()
-    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_data/LogoBig_App1024x768.png'
+    local rv, script_path = isInstalledViaReapack()
+    local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     if aboutWindowOpen then
         local windowWidth, windowHeight = 300, 400
@@ -1484,7 +1499,8 @@ function ToolsWindow()
     local mmSeconds = 0
     local ssfloat = 0
     local ffSeconds = 0
-    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_data/LogoBig_App1024x768.png'
+    local rv, script_path = isInstalledViaReapack()
+    local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     -- Fenstergröße abrufen
     
@@ -1611,7 +1627,8 @@ function CueListSetupWindow()
     local buttonWidth = 120
     local buttonHeight = 80
     local buttonSpace = 10
-    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_data/LogoBig_App1024x768.png'
+    local rv, script_path = isInstalledViaReapack()
+    local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     ImGui.SeparatorText(ctx, 'SETUP CUELIST')
     
@@ -1723,7 +1740,8 @@ function CueItemWindow()
     local buttonHeight = 50
     local buttonWidth = 80
     local xButtonsStart = 380
-    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_data/LogoBig_App1024x768.png'
+    local rv, script_path = isInstalledViaReapack()
+    local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     ImGui.SeparatorText(ctx, 'SETUP EVENT')
     -- Fenstergröße abrufen
@@ -1810,7 +1828,8 @@ function TempItemWindow()
     local buttonHeight = 50
     local buttonWidth = 80
     local xButtonsStart = 380
-    local logoImage_path = reaper.GetResourcePath() .. '/Scripts/TCHelper_data/LogoBig_App1024x768.png'
+    local rv, script_path = isInstalledViaReapack()
+    local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
     ImGui.SeparatorText(ctx, 'SETUP EVENT')
      -- Fenstergröße abrufen
@@ -2097,6 +2116,10 @@ function addTrack()
     local buttonName = ''
     local trackAmmount = reaper.GetNumTracks()
     local newTrackID = trackAmmount + 1
+    local rv, script_path = isInstalledViaReapack()
+    local trackImage_path = script_path..dataFolder..iconFolder
+    local newTrackGUID = {}
+    local trackName = 'empty'
     reaper.InsertTrackAtIndex(newTrackID, true)
     if selectedBtnOption == btnNames[1] then -------------CUELIST
         selectedIcon = trackIcon.name[1]
@@ -2129,20 +2152,18 @@ function addTrack()
         green = 198
         blue = 142
     end
-    local trackName = 'empty'
     if MAmode == 'Mode 3' then
         trackName = '|'..cueListName .. '|SeqID:' .. seqID ..'|'..buttonName .. '|TC ID:' .. tcID..'|'
     elseif MAmode == 'Mode 2' then
         trackName = '|'..cueListName .. '|SeqID:' .. seqID ..'|'..buttonName .. '|TC ID:' .. tcID..'|Page:'..pageID..'|Exec ID:'..execID..'|'
     end
-    local iconPath = iconFolder .. '/' .. selectedIcon
     local track = reaper.GetTrack(0, newTrackID - 1)
-    local trackstring = tostring(track)
+    local iconPath = trackImage_path .. selectedIcon
+    consoleMSG('Icon Path: '..iconPath)
     reaper.GetSetMediaTrackInfo_String(track, 'P_NAME', trackName, true)
     reaper.GetSetMediaTrackInfo_String(track, 'P_ICON', iconPath, true)
     reaper.SetTrackColor(track, reaper.ColorToNative(red, green, blue))
     
-    local newTrackGUID = {}
     newTrackGUID = reaper.GetTrackGUID(track)
     tracks[newTrackGUID] = {}
     tracks[newTrackGUID] = dummytrack
