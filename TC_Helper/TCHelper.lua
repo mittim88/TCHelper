@@ -2206,7 +2206,6 @@ function addTrack()
     end
     local track = reaper.GetTrack(0, newTrackID - 1)
     local iconPath = trackImage_path .. selectedIcon
-    consoleMSG('Icon Path: '..iconPath)
     reaper.GetSetMediaTrackInfo_String(track, 'P_NAME', trackName, true)
     reaper.GetSetMediaTrackInfo_String(track, 'P_ICON', iconPath, true)
     reaper.SetTrackColor(track, reaper.ColorToNative(red, green, blue))
@@ -2230,7 +2229,6 @@ function deleteTrack()
     local trackGUIDS = readTrackGUID('used')
     local selectedTrackGUID = readTrackGUID('selected')
 
-
     local trackPos = 1
     for i = 1, #trackGUIDS, 1 do
         if loadedtracks[trackGUIDS[i]].id == trackGUIDS[i] then
@@ -2244,12 +2242,12 @@ function deleteTrack()
         for i = numSelectedTracks, 1, -1 do
             local track = reaper.GetSelectedTrack(0, i-1)
             local trackGUID = reaper.GetTrackGUID(track)
-            local trackName = loadedtracks[trackGUID].name
+            local trackName = loadedtracks[trackGUID] and loadedtracks[trackGUID].name or "Unknown"
 
             --table.remove(loadedtracks[trackGUID],trackPos)
             if liveupdatebox == true then
                 local seqMessage = 'Delete Seq "'..trackName..'" /nc'
-                local tcMessage = 'Delete Timecode '..tcID..'.1.'..loadedtracks[trackGUID].nr
+                local tcMessage = 'Delete Timecode '..tcID..'.1.'..(loadedtracks[trackGUID] and loadedtracks[trackGUID].nr or "Unknown")
                 sendOSC(hostIP, consolePort, seqMessage)
                 sendOSC(hostIP, consolePort, tcMessage)
             end
