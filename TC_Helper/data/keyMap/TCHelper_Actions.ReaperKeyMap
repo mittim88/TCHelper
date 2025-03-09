@@ -1,0 +1,28 @@
+SCR 4 0 RS1ee9bb229dabffe151848d7efa3c10f748e1a1cf "Custom: lyrics.lua" Cockos/lyrics.lua
+SCR 4 0 RS1cbf05b0c4f875518496f34a5ce45adefe05cb67 "Custom: Default_6.0_theme_adjuster.lua" Cockos/Default_6.0_theme_adjuster.lua
+SCR 4 0 RS6c2efb3f983d062c88752f161da4cbbd6ab222e9 "Custom: Default_7.0_theme_adjuster.lua" Cockos/Default_7.0_theme_adjuster.lua
+SCR 4 0 RSfd872a103190e2181eb7f6bb1fff69589f1800c7 "Custom: TCHelper_install.lua" TCHelper_install.lua
+SCR 4 0 RS3e90e80282f4b1d848db994582adf4ae9583aef2 "Custom: mavriq_bank_monitor.lua" "Mavriq ReaScript Repository/Various/mavriq_bank_monitor.lua"
+SCR 4 0 RSb51cc05fba82b9da13b6ac0376675a974cb1fa05 "Custom: Mavriq_Debugging_Tools.lua" "Mavriq ReaScript Repository/Various/Debugging/Mavriq_Debugging_Tools.lua"
+SCR 4 0 RS1d8d78dcfe96a9e1c8e14b647d63bb80dfab3354 "Custom: ReaBlink_Monitor.lua" "ReaTeam Extensions/API/ReaBlink_Monitor.lua"
+SCR 4 0 RS6b4644d86854e10895485f184942fb69ecc26177 "Custom: ReaImGui_Demo.lua" "ReaTeam Extensions/API/ReaImGui_Demo.lua"
+SCR 260 0 RS1d3d8b083fd395087a1a3602c8834289011d150a "Custom: TCHelper.lua" mittim88_ReaScript_Repository/TC_Helper/TCHelper.lua
+SCR 4 0 RS314b90c427a457acae61e3147486ba582e6ac1f4 "Custom: TEST2.lua" "TE Scripts/TEST2.lua"
+SCR 260 0 RSce6467798057b1b242052a15657f8c51eb978031 "Custom: TCHelper.lua" "TE Scripts/mittim88 Reaper Repo/TC_Helper/TCHelper.lua"
+SCR 4 0 RSb049c56aabfc8ccd6e5f92a8837009784c3bb751 "Custom: KMT - Markers to CueList Add Cue.lua" "KMT - Markers to CueList Add Cue.lua"
+SCR 4 0 RS48c732a829eb06ddc0b27e416310613b6d4094c9 "Custom: KMT - Markers to CueList Reaper Plugin.lua" "KMT - Markers to CueList Reaper Plugin.lua"
+SCR 4 0 RS879f5284e27871f48bca4588c639e17ae58b2f4b "Custom: Open Lokasenna_GUI v2 Developer Tools folder.lua" "ReaTeam Scripts/Development/Lokasenna_GUI v2/Developer Tools/Open Lokasenna_GUI v2 Developer Tools folder.lua"
+SCR 4 0 RS1c6ad1164e1d29bb4b1f2c1acf82f5853ce77875 "Custom: Set Lokasenna_GUI v2 library path.lua" "ReaTeam Scripts/Development/Lokasenna_GUI v2/Library/Set Lokasenna_GUI v2 library path.lua"
+SCR 260 0 RS97ac23e9b851984cd8312ac27be8cf3a3283bdc4 "Custom: ReaImGUI Demo.lua" "TE Scripts/ReaImGUI/ReaImGUI Demo.lua"
+SCR 4 0 RSc7bb23781638c0d7895367d8c7e8b6e44ab46c9e "Custom: XMLTEST.lua" "TE Scripts/XMLTEST.lua"
+SCR 4 0 RSeb8f0302b42194455f52098725184d266a64dcdd "Custom: TELNETTEST.lua" TELNETTEST.lua
+ACT 2 0 "cb9c7dbe4ed94d0c9d79602226589ee7" "Custom: TC Helper Play/stop" _S&M_WNMAIN 40044
+ACT 2 0 "c43becb7927e4e038da9f6964d9d5ae7" "Custom: TC Helper Pause" _S&M_WNMAIN 1008
+SCR 4 0 RS2fcd5ca455e07bc29c3d599f3c2488392d332611 "Custom: TCHelper_install.lua" "TE Scripts/TCHelper_install.lua"
+KEY 9 32 0 0		 # Main : Cmd+Space : DISABLED DEFAULT
+KEY 33 32 0 0		 # Main : Control+Space : DISABLED DEFAULT
+KEY 17 32 0 0		 # Main : Opt+Space : DISABLED DEFAULT
+KEY 8 45 _RSb049c56aabfc8ccd6e5f92a8837009784c3bb751 0		 # Main : Cmd+- : Script: KMT - Markers to CueList Add Cue.lua
+KEY 16 45 _RS48c732a829eb06ddc0b27e416310613b6d4094c9 0		 # Main : Opt+- : Script: KMT - Markers to CueList Reaper Plugin.lua
+KEY 1 32 _cb9c7dbe4ed94d0c9d79602226589ee7 0		 # Main : Space : OVERRIDE DEFAULT : Custom: TC Helper Play/stop
+KEY 1 13 _c43becb7927e4e038da9f6964d9d5ae7 0		 # Main : Return : OVERRIDE DEFAULT : Custom: TC Helper Pause
