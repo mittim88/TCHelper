@@ -10,8 +10,9 @@
 --   /TC_Helper/data/projectTemplate/*.RPP
 
 
-local mode2BETA = false
 local version = 'BETA 3.1.0'
+local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
+local mode2BETA = false
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
 local testcmd2 = 'Echo --CONNECTION ESTABLISHED--'
 local script_title = 'TCHelper'
@@ -87,12 +88,15 @@ local mainDocked = false
 local cueDocked = false
 local trackDocked = false
 local firstopened = false
+local startup = false
 local mainDockID = tonumber(reaper.GetExtState("TCHelper", "MainDockID")) or 0
 local cueDockID = tonumber(reaper.GetExtState("TCHelper", "CueDockID")) or 0
 local trackDockID = tonumber(reaper.GetExtState("TCHelper", "TrackDockID")) or 0
 local selectedTrackOption = 'selected Track' -- Standardmäßig aktivierte Option
 
 local aboutWindowOpen = false
+local openNewVersionWindow = false
+local openOldVersionWindow = false
 --extData--------------------------------------------------------------------------------------------
 local selectedIcon = ''
 local dataFolder = 'data/'
@@ -215,6 +219,36 @@ function SetupSendedDataItem (trackGUID,itemGUID)
     sendedData[trackGUID].cue[itemGUID].TCname = 'empty'
     sendedData[trackGUID].cue[itemGUID].token = 'empty'
 end
+---------------HTTP+XML--------------------------------------------------------------------
+---------------DEFINE HTTP+XML TOOLS--------------------------------------------------------------------
+-- LuaSocket HTTP implementation
+local http_socket = {}
+http_socket.http = {}
+http_socket.http.request = function(params)
+    local url = params.url
+    local sink = params.sink
+
+    local handle = io.popen("curl -s -L " .. url)
+    local result = handle:read("*a")
+    handle:close()
+
+    sink(result)
+    return 1, 200
+end
+
+-- Simplified xml2lua implementation
+local xml2lua = {}
+xml2lua.parser = function(handler)
+    return {
+        parse = function(self, xmlContent)
+            handler.root = {}
+            for version in xmlContent:gmatch('<version name="(.-)"') do
+                table.insert(handler.root, version)
+            end
+        end
+    }
+end
+local handler = {}
 ---------------OSC--------------------------------------------------------------------
 ---------------DEFINE OSC TOOLS--------------------------------------------------------------------
 local info = debug.getinfo(1, 'S');
@@ -303,6 +337,67 @@ function checkSWS()
     
 end
 -----------------BACKROUND STUFF-------------------------------------------------------------
+function fetchXML(url)
+local response = {}
+local _, code = http_socket.http.request{
+    url = url,
+    sink = function(chunk)
+        table.insert(response, chunk)
+    end
+}
+
+if code ~= 200 then
+    reaper.ShowMessageBox("Error fetching XML file: " .. code, "Error", 0)
+    return nil
+end
+
+return table.concat(response)
+end
+function checkForNewVersion(currentVersion, xmlContent)
+    local parser = xml2lua.parser(handler)
+    parser:parse(xmlContent)
+
+    local versions = handler.root
+    if not versions then
+        reaper.ShowMessageBox("No versions found.", "Info", 0)
+        return
+    end
+
+    local function split(version)
+        local t = {}
+        for part in version:gmatch("(%d+)") do
+            table.insert(t, tonumber(part))
+        end
+        return t
+    end
+
+    local function isNewerVersion(currentVersion, latestVersion)
+        local current = split(currentVersion)
+        local latest = split(latestVersion)
+
+        for i = 1, math.max(#current, #latest) do
+            if (latest[i] or 0) > (current[i] or 0) then
+                return true
+            elseif (latest[i] or 0) < (current[i] or 0) then
+                return false
+            end
+        end
+        return false
+    end
+
+    local latestVersion = versions[#versions] -- Letzte Version im Table
+    if isNewerVersion(currentVersion, latestVersion) then
+        if startup ~= nil then
+            openNewVersionWindow = true
+        end
+    else
+        if startup == true then
+            openOldVersionWindow = true            
+        end
+    end
+    return latestVersion
+end
+
 function consoleMSG(x)
     reaper.ShowConsoleMsg(x..'\n')
 end
@@ -1109,8 +1204,12 @@ local function TCHelper_Window()
                 mergeDataOption()
                 local rv = reaper.ShowMessageBox('Merged data', script_title, 0)
             end
-            if ImGui.MenuItem(ctx, 'Package Browser') then
-                refreshAndBrowseTCHelper()
+            if ImGui.MenuItem(ctx, 'Update') then
+                local xmlContent = fetchXML(page)
+                if xmlContent then
+                    checkForNewVersion(version, xmlContent)
+                    refreshAndBrowseTCHelper()
+                end
             end
             reaper.ImGui_EndMenu(ctx)
         end
@@ -1254,7 +1353,7 @@ local function TCHelper_Window()
     end
 end
 local rv
-local function ShowAboutWindow()
+function ShowAboutWindow()
     local rv, script_path = isInstalledViaReapack()
     local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
@@ -1307,6 +1406,51 @@ local function ShowAboutWindow()
         end
         if not open then
             aboutWindowOpen = false
+        end
+    end
+end
+function ShowStartupUpdateWindow(latestVersion)
+    if openNewVersionWindow then
+        local windowWidth, windowHeight = 400, 200
+        reaper.ImGui_SetNextWindowSize(ctx, windowWidth, windowHeight, reaper.ImGui_Cond_Always())
+        local windowFlags = reaper.ImGui_WindowFlags_NoResize()
+        local visible, open = reaper.ImGui_Begin(ctx, "Update Available", true, windowFlags)
+        if visible then
+            local text = "A new version (" .. latestVersion .. ") of TCHelper is available.\nPlease update to the latest version."
+            local lines = {}
+            for line in text:gmatch("[^\n]+") do
+                table.insert(lines, line)
+            end
+
+            local totalTextHeight = #lines * reaper.ImGui_GetTextLineHeight(ctx)
+            local startY = (windowHeight - totalTextHeight) / 2 - 20
+            for i, line in ipairs(lines) do
+                local textWidth = reaper.ImGui_CalcTextSize(ctx, line)
+                local textX = (windowWidth - textWidth) / 2
+                local textY = startY + (i - 1) * reaper.ImGui_GetTextLineHeight(ctx)
+                reaper.ImGui_SetCursorPos(ctx, textX, textY)
+                reaper.ImGui_Text(ctx, line)
+            end
+
+            local buttonWidth, buttonHeight = 100, 30
+            local buttonY = windowHeight - buttonHeight - 20
+
+            reaper.ImGui_SetCursorPos(ctx, (windowWidth / 2) - buttonWidth - 10, buttonY)
+            if reaper.ImGui_Button(ctx, "Update", buttonWidth, buttonHeight) then
+                openNewVersionWindow = false
+                refreshAndBrowseTCHelper()
+            end
+
+            reaper.ImGui_SameLine(ctx)
+            reaper.ImGui_SetCursorPos(ctx, (windowWidth / 2) + 10, buttonY)
+            if reaper.ImGui_Button(ctx, "Not Now", buttonWidth, buttonHeight) then
+                openNewVersionWindow = false
+            end
+
+            reaper.ImGui_End(ctx)
+        end
+        if not open then
+            openNewVersionWindow = false
         end
     end
 end
@@ -1962,7 +2106,6 @@ function TempItemWindow()
     ImGui.PopID(ctx)
 end
 -----------------RENAMEING DATA WINDOWS-------------------------------------------------------------
-
 function renameTrackWindow()
     getTrackContent()
     local spaceBtn = 20
@@ -3222,7 +3365,6 @@ function sendToConsoleMA2(OscCommands)
     --sendedData = copy3(loadedtracks)
     --reaper.ShowConsoleMsg('\nEND OF SEND TO CONSOLE')
 end
-
 -- local dock = -3
 checkSWS()
 InitiateSendedData()
@@ -3230,6 +3372,13 @@ getTrackContent()
 checkSendedData()
 defineMA3ModeOnFirstStrartup()
 copyReaperTemplate()
+local latestVersion = "empty"
+local xmlContent = fetchXML(page)
+
+
+
+latestVersion = checkForNewVersion(version, xmlContent)
+-- Stellen Sie sicher, dass latestVersion definiert ist
 local flags = reaper.ImGui_WindowFlags_MenuBar()   -- Add Menu bar and remove the rezise feature. 
 local function loop()
     if addonCheck == true then
@@ -3247,8 +3396,8 @@ local function loop()
         --liveTrackCount = readTrackGUID('used')
 
         reaper.ImGui_PushFont(ctx, sans_serif)
-        --GUI COLOR STYLE----------------------------------------------------------------------------------------
         --------------------------------------------------------------------------------------------------------
+        --GUI COLOR STYLE----------------------------------------------------------------------------------------
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Text(),                      0xDCDCDCFF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TextDisabled(),              0x808080FF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_WindowBg(),                  0x333333FF)
@@ -3374,6 +3523,7 @@ if networkChecked == true then
     openConnectionWindow()
 end
 ShowAboutWindow()
+ShowStartupUpdateWindow(latestVersion)
         reaper.ImGui_PopStyleColor(ctx, 57)
         reaper.ImGui_PopStyleVar(ctx, 32)
         reaper.ImGui_PopFont(ctx)
