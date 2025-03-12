@@ -353,7 +353,7 @@ end
 
 return table.concat(response)
 end
-function checkForNewVersion(currentVersion, xmlContent)
+function checkForNewVersion(currentVersion, xmlContent, manualCheck)
     local parser = xml2lua.parser(handler)
     parser:parse(xmlContent)
 
@@ -391,13 +391,12 @@ function checkForNewVersion(currentVersion, xmlContent)
             openNewVersionWindow = true
         end
     else
-        if startup == true then
-            openOldVersionWindow = true            
+        if manualCheck then
+            openOldVersionWindow = true
         end
     end
     return latestVersion
 end
-
 function consoleMSG(x)
     reaper.ShowConsoleMsg(x..'\n')
 end
@@ -1207,8 +1206,7 @@ local function TCHelper_Window()
             if ImGui.MenuItem(ctx, 'Update') then
                 local xmlContent = fetchXML(page)
                 if xmlContent then
-                    checkForNewVersion(version, xmlContent)
-                    refreshAndBrowseTCHelper()
+                    checkForNewVersion(version, xmlContent, true)
                 end
             end
             reaper.ImGui_EndMenu(ctx)
@@ -1409,13 +1407,77 @@ function ShowAboutWindow()
         end
     end
 end
-function ShowStartupUpdateWindow(latestVersion)
-    if openNewVersionWindow then
-        local windowWidth, windowHeight = 400, 200
+function ShowOldVersionUpdateWindow(currentVersion)
+    if openOldVersionWindow then
+        local windowWidth, windowHeight = 400, 300
         reaper.ImGui_SetNextWindowSize(ctx, windowWidth, windowHeight, reaper.ImGui_Cond_Always())
         local windowFlags = reaper.ImGui_WindowFlags_NoResize()
-        local visible, open = reaper.ImGui_Begin(ctx, "Update Available", true, windowFlags)
+        local visible, open = reaper.ImGui_Begin(ctx, "Update TCHelper", true, windowFlags)
         if visible then
+            -- Logo anzeigen
+            local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
+            local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
+            if logoImage_texture then
+                local logoWidth, logoHeight = 190, 170
+                local logoX = (windowWidth - logoWidth) / 2
+                reaper.ImGui_SetCursorPos(ctx, logoX, 20)
+                reaper.ImGui_Image(ctx, logoImage_texture, logoWidth, logoHeight)
+            else
+                reaper.ShowMessageBox('Bild konnte nicht geladen werden.', 'Fehler', 0)
+            end
+
+            -- Text anzeigen
+            local text = "You are using the latest version (" .. currentVersion .. ") of TCHelper.\nNo update is necessary."
+            local lines = {}
+            for line in text:gmatch("[^\n]+") do
+                table.insert(lines, line)
+            end
+
+            local totalTextHeight = #lines * reaper.ImGui_GetTextLineHeight(ctx)
+            local startY = (windowHeight - totalTextHeight) / 2 + 50
+            for i, line in ipairs(lines) do
+                local textWidth = reaper.ImGui_CalcTextSize(ctx, line)
+                local textX = (windowWidth - textWidth) / 2
+                local textY = startY + (i - 1) * reaper.ImGui_GetTextLineHeight(ctx)
+                reaper.ImGui_SetCursorPos(ctx, textX, textY)
+                reaper.ImGui_Text(ctx, line)
+            end
+
+            -- OK Button
+            local buttonWidth, buttonHeight = 100, 30
+            local buttonY = windowHeight - buttonHeight - 20
+            reaper.ImGui_SetCursorPos(ctx, (windowWidth - buttonWidth) / 2, buttonY)
+            if reaper.ImGui_Button(ctx, "OK", buttonWidth, buttonHeight) then
+                openOldVersionWindow = false
+            end
+
+            reaper.ImGui_End(ctx)
+        end
+        if not open then
+            openOldVersionWindow = false
+        end
+    end
+end
+function ShowNewVersionUpdateWindow(latestVersion)
+    if openNewVersionWindow then
+        local windowWidth, windowHeight = 400, 300
+        reaper.ImGui_SetNextWindowSize(ctx, windowWidth, windowHeight, reaper.ImGui_Cond_Always())
+        local windowFlags = reaper.ImGui_WindowFlags_NoResize()
+        local visible, open = reaper.ImGui_Begin(ctx, "Update TCHelper", true, windowFlags)
+        if visible then
+            -- Logo anzeigen
+            local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
+            local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
+            if logoImage_texture then
+                local logoWidth, logoHeight = 190, 170
+                local logoX = (windowWidth - logoWidth) / 2
+                reaper.ImGui_SetCursorPos(ctx, logoX, 20)
+                reaper.ImGui_Image(ctx, logoImage_texture, logoWidth, logoHeight)
+            else
+                reaper.ShowMessageBox('Bild konnte nicht geladen werden.', 'Fehler', 0)
+            end
+
+            -- Text anzeigen
             local text = "A new version (" .. latestVersion .. ") of TCHelper is available.\nPlease update to the latest version."
             local lines = {}
             for line in text:gmatch("[^\n]+") do
@@ -1423,7 +1485,7 @@ function ShowStartupUpdateWindow(latestVersion)
             end
 
             local totalTextHeight = #lines * reaper.ImGui_GetTextLineHeight(ctx)
-            local startY = (windowHeight - totalTextHeight) / 2 - 20
+            local startY = (windowHeight - totalTextHeight) / 2 + 50
             for i, line in ipairs(lines) do
                 local textWidth = reaper.ImGui_CalcTextSize(ctx, line)
                 local textX = (windowWidth - textWidth) / 2
@@ -3374,7 +3436,7 @@ defineMA3ModeOnFirstStrartup()
 copyReaperTemplate()
 local latestVersion = "empty"
 local xmlContent = fetchXML(page)
-
+startup = true
 
 
 latestVersion = checkForNewVersion(version, xmlContent)
@@ -3523,7 +3585,8 @@ if networkChecked == true then
     openConnectionWindow()
 end
 ShowAboutWindow()
-ShowStartupUpdateWindow(latestVersion)
+ShowNewVersionUpdateWindow(latestVersion)
+ShowOldVersionUpdateWindow(latestVersion)
         reaper.ImGui_PopStyleColor(ctx, 57)
         reaper.ImGui_PopStyleVar(ctx, 32)
         reaper.ImGui_PopFont(ctx)
@@ -3532,4 +3595,5 @@ ShowStartupUpdateWindow(latestVersion)
         end
     end
 end
+
 reaper.defer(loop)
