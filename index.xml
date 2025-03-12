@@ -1,9 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<<<<<<< HEAD
-<index version="1" commit="9126e92119992d942f7dd3e63fd0c408353cf9d4" name="mittim88 Reaper Scripts">
-=======
-<index version="1" commit="0737b8e1231c65e9dbf456dfd0d92fb35dbaab45" name="mittim88 Reaper Scripts">
->>>>>>> develop
+<index version="1" commit="32f68229ce7302b06a260676c0a8b9a0b9a54002">
   <category name="TC_Helper">
     <reapack name="TCHelper.lua" type="script" desc="TCHelper">
       <version name="2.5.1" author="mittim88" time="2024-01-21T08:30:10Z">
@@ -15,16 +11,16 @@
         <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/8ab266adcefe9ad7fc625ce1dce1f40189f6eadf/TC_Helper/osc.lua</source>
       </version>
       <version name="2.5.3" author="mittim88" time="2024-01-25T11:21:06Z">
-        <source main="main">https://github.com/mittim88/TCHelper/raw/c7d65002a51c3efab45a309950482d06f1103e7f/TC_Helper/TCHelper.lua</source>
-        <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/c7d65002a51c3efab45a309950482d06f1103e7f/TC_Helper/osc.lua</source>
+        <source main="main">https://github.com/mittim88/TCHelper/raw/88ea3d378d814628d74f5e69e34bc6082a73a487/TC_Helper/TCHelper.lua</source>
+        <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/88ea3d378d814628d74f5e69e34bc6082a73a487/TC_Helper/osc.lua</source>
       </version>
       <version name="2.6.0" author="mittim88" time="2024-01-25T14:55:12Z">
         <source main="main">https://github.com/mittim88/TCHelper/raw/a297afe1b2107690351cb5c1b1e8aedde52b1a5c/TC_Helper/TCHelper.lua</source>
         <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/a297afe1b2107690351cb5c1b1e8aedde52b1a5c/TC_Helper/osc.lua</source>
       </version>
       <version name="2.6.1" author="mittim88" time="2024-01-26T10:02:15Z">
-        <source main="main">https://github.com/mittim88/TCHelper/raw/e00d7caa2d87723c1d1392a1927aef3a225fa4f9/TC_Helper/TCHelper.lua</source>
-        <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/e00d7caa2d87723c1d1392a1927aef3a225fa4f9/TC_Helper/osc.lua</source>
+        <source main="main">https://github.com/mittim88/TCHelper/raw/39fc65c2ba264496183b33e4efa07a9601df1fb7/TC_Helper/TCHelper.lua</source>
+        <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/39fc65c2ba264496183b33e4efa07a9601df1fb7/TC_Helper/osc.lua</source>
       </version>
       <version name="2.6.2" author="mittim88" time="2024-01-28T09:15:52Z">
         <source main="main">https://github.com/mittim88/TCHelper/raw/cdd685dea6b80fa5b310523698f431e0b0102b31/TC_Helper/TCHelper.lua</source>
@@ -47,12 +43,12 @@
         <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/fbb4d042a87827dad9b0752ea36aca0ba58b9192/TC_Helper/osc.lua</source>
       </version>
       <version name="3.0.0" author="mittim88" time="2024-09-20T09:41:41Z">
-        <source main="main">https://github.com/mittim88/TCHelper/raw/7dfaf6e6ba85c715ee7ddc8f785757c3e031b854/TC_Helper/TCHelper.lua</source>
-        <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/7dfaf6e6ba85c715ee7ddc8f785757c3e031b854/TC_Helper/osc.lua</source>
+        <source main="main">https://github.com/mittim88/TCHelper/raw/5ab450ea6c88a6ae119d9a0fcf94c9ff0f8fe6ee/TC_Helper/TCHelper.lua</source>
+        <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/5ab450ea6c88a6ae119d9a0fcf94c9ff0f8fe6ee/TC_Helper/osc.lua</source>
       </version>
       <version name="3.0.1" author="mittim88" time="2025-01-14T10:39:26Z">
-        <source main="main">https://github.com/mittim88/TCHelper/raw/7faa5fb54c7f184af88abf9e87e047b3a0ba72b9/TC_Helper/TCHelper.lua</source>
-        <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/7faa5fb54c7f184af88abf9e87e047b3a0ba72b9/TC_Helper/osc.lua</source>
+        <source main="main">https://github.com/mittim88/TCHelper/raw/9e56b304237fdd84a1f82c69f7e1336377832dcf/TC_Helper/TCHelper.lua</source>
+        <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/9e56b304237fdd84a1f82c69f7e1336377832dcf/TC_Helper/osc.lua</source>
       </version>
       <version name="3.0.2" author="mittim88" time="2025-01-17T10:07:52Z">
         <source main="main">https://github.com/mittim88/TCHelper/raw/8f86cb06cc36349b0f82e8e9d30768123ea2c867/TC_Helper/TCHelper.lua</source>
@@ -70,7 +66,6 @@
         <source main="main">https://github.com/mittim88/TCHelper/raw/e12819bb81bcdc4782f938086e8135f5f5ef35be/TC_Helper/TCHelper.lua</source>
         <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/e12819bb81bcdc4782f938086e8135f5f5ef35be/TC_Helper/osc.lua</source>
       </version>
-<<<<<<< HEAD
       <version name="3.2.0" author="mittim88" time="2025-03-09T12:02:04Z">
         <source main="main">https://github.com/mittim88/TCHelper/raw/9126e92119992d942f7dd3e63fd0c408353cf9d4/TC_Helper/TCHelper.lua</source>
         <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/9126e92119992d942f7dd3e63fd0c408353cf9d4/TC_Helper/osc.lua</source>
@@ -84,7 +79,7 @@
         <source file="data/logo/App Icon512x512.png">https://github.com/mittim88/TCHelper/raw/9126e92119992d942f7dd3e63fd0c408353cf9d4/TC_Helper/data/logo/App%20Icon512x512.png</source>
         <source file="data/logo/LogoBig_App1024x768.png">https://github.com/mittim88/TCHelper/raw/9126e92119992d942f7dd3e63fd0c408353cf9d4/TC_Helper/data/logo/LogoBig_App1024x768.png</source>
         <source file="data/projectTemplate/TCHelper Project.RPP">https://github.com/mittim88/TCHelper/raw/9126e92119992d942f7dd3e63fd0c408353cf9d4/TC_Helper/data/projectTemplate/TCHelper%20Project.RPP</source>
-=======
+      </version>
       <version name="3.3.0" author="mittim88" time="2025-03-12T18:59:32Z">
         <source main="main">https://github.com/mittim88/TCHelper/raw/0737b8e1231c65e9dbf456dfd0d92fb35dbaab45/TC_Helper/TCHelper.lua</source>
         <source file="osc.lua">https://github.com/mittim88/TCHelper/raw/0737b8e1231c65e9dbf456dfd0d92fb35dbaab45/TC_Helper/osc.lua</source>
@@ -98,7 +93,6 @@
         <source file="data/logo/App Icon512x512.png">https://github.com/mittim88/TCHelper/raw/0737b8e1231c65e9dbf456dfd0d92fb35dbaab45/TC_Helper/data/logo/App%20Icon512x512.png</source>
         <source file="data/logo/LogoBig_App1024x768.png">https://github.com/mittim88/TCHelper/raw/0737b8e1231c65e9dbf456dfd0d92fb35dbaab45/TC_Helper/data/logo/LogoBig_App1024x768.png</source>
         <source file="data/projectTemplate/TCHelper Project.RPP">https://github.com/mittim88/TCHelper/raw/0737b8e1231c65e9dbf456dfd0d92fb35dbaab45/TC_Helper/data/projectTemplate/TCHelper%20Project.RPP</source>
->>>>>>> develop
       </version>
     </reapack>
   </category>
