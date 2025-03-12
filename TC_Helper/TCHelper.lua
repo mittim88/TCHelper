@@ -10,6 +10,8 @@
 --   /TC_Helper/data/projectTemplate/*.RPP
 
 
+local version = 'BETA 3.3.0'
+local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
 local mode2BETA = false
 local version = '3.2.0'
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
@@ -87,12 +89,15 @@ local mainDocked = false
 local cueDocked = false
 local trackDocked = false
 local firstopened = false
+local startup = false
 local mainDockID = tonumber(reaper.GetExtState("TCHelper", "MainDockID")) or 0
 local cueDockID = tonumber(reaper.GetExtState("TCHelper", "CueDockID")) or 0
 local trackDockID = tonumber(reaper.GetExtState("TCHelper", "TrackDockID")) or 0
 local selectedTrackOption = 'selected Track' -- Standardmäßig aktivierte Option
 
 local aboutWindowOpen = false
+local openNewVersionWindow = false
+local openOldVersionWindow = false
 --extData--------------------------------------------------------------------------------------------
 local selectedIcon = ''
 local dataFolder = 'data/'
@@ -215,6 +220,36 @@ function SetupSendedDataItem (trackGUID,itemGUID)
     sendedData[trackGUID].cue[itemGUID].TCname = 'empty'
     sendedData[trackGUID].cue[itemGUID].token = 'empty'
 end
+---------------HTTP+XML--------------------------------------------------------------------
+---------------DEFINE HTTP+XML TOOLS--------------------------------------------------------------------
+-- LuaSocket HTTP implementation
+local http_socket = {}
+http_socket.http = {}
+http_socket.http.request = function(params)
+    local url = params.url
+    local sink = params.sink
+
+    local handle = io.popen("curl -s -L " .. url)
+    local result = handle:read("*a")
+    handle:close()
+
+    sink(result)
+    return 1, 200
+end
+
+-- Simplified xml2lua implementation
+local xml2lua = {}
+xml2lua.parser = function(handler)
+    return {
+        parse = function(self, xmlContent)
+            handler.root = {}
+            for version in xmlContent:gmatch('<version name="(.-)"') do
+                table.insert(handler.root, version)
+            end
+        end
+    }
+end
+local handler = {}
 ---------------OSC--------------------------------------------------------------------
 ---------------DEFINE OSC TOOLS--------------------------------------------------------------------
 local info = debug.getinfo(1, 'S');
@@ -303,6 +338,66 @@ function checkSWS()
     
 end
 -----------------BACKROUND STUFF-------------------------------------------------------------
+function fetchXML(url)
+local response = {}
+local _, code = http_socket.http.request{
+    url = url,
+    sink = function(chunk)
+        table.insert(response, chunk)
+    end
+}
+
+if code ~= 200 then
+    reaper.ShowMessageBox("Error fetching XML file: " .. code, "Error", 0)
+    return nil
+end
+
+return table.concat(response)
+end
+function checkForNewVersion(currentVersion, xmlContent, manualCheck)
+    local parser = xml2lua.parser(handler)
+    parser:parse(xmlContent)
+
+    local versions = handler.root
+    if not versions then
+        reaper.ShowMessageBox("No versions found.", "Info", 0)
+        return
+    end
+
+    local function split(version)
+        local t = {}
+        for part in version:gmatch("(%d+)") do
+            table.insert(t, tonumber(part))
+        end
+        return t
+    end
+
+    local function isNewerVersion(currentVersion, latestVersion)
+        local current = split(currentVersion)
+        local latest = split(latestVersion)
+
+        for i = 1, math.max(#current, #latest) do
+            if (latest[i] or 0) > (current[i] or 0) then
+                return true
+            elseif (latest[i] or 0) < (current[i] or 0) then
+                return false
+            end
+        end
+        return false
+    end
+
+    local latestVersion = versions[#versions] -- Letzte Version im Table
+    if isNewerVersion(currentVersion, latestVersion) then
+        if startup ~= nil then
+            openNewVersionWindow = true
+        end
+    else
+        if manualCheck then
+            openOldVersionWindow = true
+        end
+    end
+    return latestVersion
+end
 function consoleMSG(x)
     reaper.ShowConsoleMsg(x..'\n')
 end
@@ -1109,8 +1204,11 @@ local function TCHelper_Window()
                 mergeDataOption()
                 local rv = reaper.ShowMessageBox('Merged data', script_title, 0)
             end
-            if ImGui.MenuItem(ctx, 'Package Browser') then
-                refreshAndBrowseTCHelper()
+            if ImGui.MenuItem(ctx, 'Update') then
+                local xmlContent = fetchXML(page)
+                if xmlContent then
+                    checkForNewVersion(version, xmlContent, true)
+                end
             end
             reaper.ImGui_EndMenu(ctx)
         end
@@ -1254,7 +1352,7 @@ local function TCHelper_Window()
     end
 end
 local rv
-local function ShowAboutWindow()
+function ShowAboutWindow()
     local rv, script_path = isInstalledViaReapack()
     local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
@@ -1307,6 +1405,115 @@ local function ShowAboutWindow()
         end
         if not open then
             aboutWindowOpen = false
+        end
+    end
+end
+function ShowOldVersionUpdateWindow(currentVersion)
+    if openOldVersionWindow then
+        local windowWidth, windowHeight = 400, 300
+        reaper.ImGui_SetNextWindowSize(ctx, windowWidth, windowHeight, reaper.ImGui_Cond_Always())
+        local windowFlags = reaper.ImGui_WindowFlags_NoResize()
+        local visible, open = reaper.ImGui_Begin(ctx, "Update TCHelper", true, windowFlags)
+        if visible then
+            -- Logo anzeigen
+            local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
+            local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
+            if logoImage_texture then
+                local logoWidth, logoHeight = 190, 170
+                local logoX = (windowWidth - logoWidth) / 2
+                reaper.ImGui_SetCursorPos(ctx, logoX, 20)
+                reaper.ImGui_Image(ctx, logoImage_texture, logoWidth, logoHeight)
+            else
+                reaper.ShowMessageBox('Bild konnte nicht geladen werden.', 'Fehler', 0)
+            end
+
+            -- Text anzeigen
+            local text = "You are using the latest version (" .. currentVersion .. ") of TCHelper.\nNo update is necessary."
+            local lines = {}
+            for line in text:gmatch("[^\n]+") do
+                table.insert(lines, line)
+            end
+
+            local totalTextHeight = #lines * reaper.ImGui_GetTextLineHeight(ctx)
+            local startY = (windowHeight - totalTextHeight) / 2 + 50
+            for i, line in ipairs(lines) do
+                local textWidth = reaper.ImGui_CalcTextSize(ctx, line)
+                local textX = (windowWidth - textWidth) / 2
+                local textY = startY + (i - 1) * reaper.ImGui_GetTextLineHeight(ctx)
+                reaper.ImGui_SetCursorPos(ctx, textX, textY)
+                reaper.ImGui_Text(ctx, line)
+            end
+
+            -- OK Button
+            local buttonWidth, buttonHeight = 100, 30
+            local buttonY = windowHeight - buttonHeight - 20
+            reaper.ImGui_SetCursorPos(ctx, (windowWidth - buttonWidth) / 2, buttonY)
+            if reaper.ImGui_Button(ctx, "OK", buttonWidth, buttonHeight) then
+                openOldVersionWindow = false
+            end
+
+            reaper.ImGui_End(ctx)
+        end
+        if not open then
+            openOldVersionWindow = false
+        end
+    end
+end
+function ShowNewVersionUpdateWindow(latestVersion)
+    if openNewVersionWindow then
+        local windowWidth, windowHeight = 400, 300
+        reaper.ImGui_SetNextWindowSize(ctx, windowWidth, windowHeight, reaper.ImGui_Cond_Always())
+        local windowFlags = reaper.ImGui_WindowFlags_NoResize()
+        local visible, open = reaper.ImGui_Begin(ctx, "Update TCHelper", true, windowFlags)
+        if visible then
+            -- Logo anzeigen
+            local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
+            local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
+            if logoImage_texture then
+                local logoWidth, logoHeight = 190, 170
+                local logoX = (windowWidth - logoWidth) / 2
+                reaper.ImGui_SetCursorPos(ctx, logoX, 20)
+                reaper.ImGui_Image(ctx, logoImage_texture, logoWidth, logoHeight)
+            else
+                reaper.ShowMessageBox('Bild konnte nicht geladen werden.', 'Fehler', 0)
+            end
+
+            -- Text anzeigen
+            local text = "A new version (" .. latestVersion .. ") of TCHelper is available.\nPlease update to the latest version."
+            local lines = {}
+            for line in text:gmatch("[^\n]+") do
+                table.insert(lines, line)
+            end
+
+            local totalTextHeight = #lines * reaper.ImGui_GetTextLineHeight(ctx)
+            local startY = (windowHeight - totalTextHeight) / 2 + 50
+            for i, line in ipairs(lines) do
+                local textWidth = reaper.ImGui_CalcTextSize(ctx, line)
+                local textX = (windowWidth - textWidth) / 2
+                local textY = startY + (i - 1) * reaper.ImGui_GetTextLineHeight(ctx)
+                reaper.ImGui_SetCursorPos(ctx, textX, textY)
+                reaper.ImGui_Text(ctx, line)
+            end
+
+            local buttonWidth, buttonHeight = 100, 30
+            local buttonY = windowHeight - buttonHeight - 20
+
+            reaper.ImGui_SetCursorPos(ctx, (windowWidth / 2) - buttonWidth - 10, buttonY)
+            if reaper.ImGui_Button(ctx, "Update", buttonWidth, buttonHeight) then
+                openNewVersionWindow = false
+                refreshAndBrowseTCHelper()
+            end
+
+            reaper.ImGui_SameLine(ctx)
+            reaper.ImGui_SetCursorPos(ctx, (windowWidth / 2) + 10, buttonY)
+            if reaper.ImGui_Button(ctx, "Not Now", buttonWidth, buttonHeight) then
+                openNewVersionWindow = false
+            end
+
+            reaper.ImGui_End(ctx)
+        end
+        if not open then
+            openNewVersionWindow = false
         end
     end
 end
@@ -1962,7 +2169,6 @@ function TempItemWindow()
     ImGui.PopID(ctx)
 end
 -----------------RENAMEING DATA WINDOWS-------------------------------------------------------------
-
 function renameTrackWindow()
     getTrackContent()
     local spaceBtn = 20
@@ -1975,7 +2181,7 @@ function renameTrackWindow()
     local windowWidth, windowHeight = reaper.ImGui_GetWindowSize(ctx)
     windowWidth = math.max(windowWidth, minWindowWidth)
     local paneWidth = math.max(minPaneWidth, windowWidth - minButtonWidth - spaceBtn - 50)
-    local textWidth = math.max(minTextWidth, (paneWidth - 150) / 2)
+    local textWidth = paneWidth - 100
     local buttonWidth = math.max(minButtonWidth, 100)
     local buttonHeight = math.max(minButtonHeight, 100)
 
@@ -2018,17 +2224,17 @@ function renameCuesWindow()
     local minTextWidth = 100
     local minFadeWidth = 50
     local minButtonWidth = 100
-    local minButtonHeight = 100
+    local minButtonHeight = 20
     local minWindowWidth = minPaneWidth + minButtonWidth + spaceBtn + 50
 
     local windowWidth, windowHeight = reaper.ImGui_GetWindowSize(ctx)
     windowWidth = math.max(windowWidth, minWindowWidth)
-    local paneWidth = math.max(minPaneWidth, windowWidth - minButtonWidth - spaceBtn - 50)
-    local textWidth = math.max(minTextWidth, (paneWidth - 150) / 2)
+    local paneWidth = math.max(minPaneWidth, windowWidth - minButtonWidth - spaceBtn - 20)
     local fadeWidth = math.max(minFadeWidth, 50)
     local buttonWidth = math.max(minButtonWidth, 100)
-    local buttonHeight = math.max(minButtonHeight, 100)
-
+    local buttonHeight = math.max(minButtonHeight, 20)
+    local textWidth = paneWidth - fadeWidth - buttonWidth - 170
+    local spacer = 20
     local usedTracks = readTrackGUID('used')
     local tcTrack = readTrackGUID('selected')
 
@@ -2065,9 +2271,10 @@ function renameCuesWindow()
     seqName = loadedtracks[tcTrack].name or "No track"
     reaper.ImGui_Text(ctx, 'Selected track: ' .. seqName)
     if reaper.ImGui_BeginChild(ctx, 'left pane', paneWidth, windowHeight - 50, true) then
-        reaper.ImGui_SetCursorPos(ctx, 50, 10)
+        reaper.ImGui_SetCursorPos(ctx, 10, 10)
         reaper.ImGui_Text(ctx, 'Cuenames')
-        reaper.ImGui_SetCursorPos(ctx, 50 + textWidth + 50, 10) -- Dynamische Position für 'Fadetimes'
+        reaper.ImGui_SameLine(ctx)
+        reaper.ImGui_SetCursorPos(ctx, paneWidth - fadeWidth - buttonWidth - 20, 10)
         reaper.ImGui_Text(ctx, 'Fadetimes')
         local j = 0
         for i = 1, #NewCueNames, 1 do
@@ -2086,7 +2293,7 @@ function renameCuesWindow()
             rv2, NewFadeTimes[i] = reaper.ImGui_InputText(ctx, 'Fade-' .. cueID, NewFadeTimes[i])
             reaper.ImGui_SameLine(ctx)
 
-            if reaper.ImGui_Button(ctx, 'jump ' .. i, 80, 20) then
+            if reaper.ImGui_Button(ctx, 'jump ' .. i, buttonWidth, buttonHeight) then
                 local trackItem = reaper.BR_GetMediaTrackByGUID(0, tcTrack)
                 local item = reaper.GetTrackMediaItem(trackItem, j)
                 local rv, itemGUID = reaper.GetSetMediaItemInfo_String(item, "GUID", "", false)
@@ -2099,7 +2306,7 @@ function renameCuesWindow()
         reaper.ImGui_EndChild(ctx)
     end
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
-    if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', buttonWidth, buttonHeight) then
+    if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', buttonWidth, 80) then
         renameItems()
     end
 
@@ -3222,7 +3429,6 @@ function sendToConsoleMA2(OscCommands)
     --sendedData = copy3(loadedtracks)
     --reaper.ShowConsoleMsg('\nEND OF SEND TO CONSOLE')
 end
-
 -- local dock = -3
 checkSWS()
 InitiateSendedData()
@@ -3230,6 +3436,13 @@ getTrackContent()
 checkSendedData()
 defineMA3ModeOnFirstStrartup()
 copyReaperTemplate()
+local latestVersion = "empty"
+local xmlContent = fetchXML(page)
+startup = true
+
+
+latestVersion = checkForNewVersion(version, xmlContent)
+-- Stellen Sie sicher, dass latestVersion definiert ist
 local flags = reaper.ImGui_WindowFlags_MenuBar()   -- Add Menu bar and remove the rezise feature. 
 local function loop()
     if addonCheck == true then
@@ -3247,8 +3460,8 @@ local function loop()
         --liveTrackCount = readTrackGUID('used')
 
         reaper.ImGui_PushFont(ctx, sans_serif)
-        --GUI COLOR STYLE----------------------------------------------------------------------------------------
         --------------------------------------------------------------------------------------------------------
+        --GUI COLOR STYLE----------------------------------------------------------------------------------------
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Text(),                      0xDCDCDCFF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TextDisabled(),              0x808080FF)
         reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_WindowBg(),                  0x333333FF)
@@ -3374,6 +3587,8 @@ if networkChecked == true then
     openConnectionWindow()
 end
 ShowAboutWindow()
+ShowNewVersionUpdateWindow(latestVersion)
+ShowOldVersionUpdateWindow(latestVersion)
         reaper.ImGui_PopStyleColor(ctx, 57)
         reaper.ImGui_PopStyleVar(ctx, 32)
         reaper.ImGui_PopFont(ctx)
@@ -3382,4 +3597,5 @@ ShowAboutWindow()
         end
     end
 end
+
 reaper.defer(loop)
