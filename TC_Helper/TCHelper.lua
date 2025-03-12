@@ -1,5 +1,5 @@
 -- @description TCHelper
--- @version 3.1.0
+-- @version 3.3.0
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
@@ -10,7 +10,7 @@
 --   /TC_Helper/data/projectTemplate/*.RPP
 
 
-local version = 'BETA 3.1.0'
+local version = 'BETA 3.3.0'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
 local mode2BETA = false
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
