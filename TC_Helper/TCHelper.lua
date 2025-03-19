@@ -1,5 +1,5 @@
 -- @description TCHelper
--- @version 3.3.0
+-- @version 3.3.1
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
