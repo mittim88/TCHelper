@@ -1,5 +1,5 @@
 -- @description TCHelper
--- @version 3.3.1
+-- @version 3.3.2
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
@@ -10,7 +10,7 @@
 --   /TC_Helper/data/projectTemplate/*.RPP
 
 
-local version = '1.3.1'
+local version = '3.3.2'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
 local mode2BETA = false
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
@@ -94,6 +94,7 @@ local cueDockID = tonumber(reaper.GetExtState("TCHelper", "CueDockID")) or 0
 local trackDockID = tonumber(reaper.GetExtState("TCHelper", "TrackDockID")) or 0
 local selectedTrackOption = 'selected Track' -- Standardmäßig aktivierte Option
 
+local manualCheck = false
 local aboutWindowOpen = false
 local openNewVersionWindow = false
 local openOldVersionWindow = false
@@ -228,14 +229,16 @@ http_socket.http.request = function(params)
     local url = params.url
     local sink = params.sink
 
-    local handle = io.popen("curl -s -L " .. url)
+    local handle = io.popen("curl -s -w '%{http_code}' -o - " .. url)
     local result = handle:read("*a")
     handle:close()
 
-    sink(result)
-    return 1, 200
-end
+    local code = tonumber(result:sub(-3))
+    local content = result:sub(1, -4)
 
+    sink(content)
+    return 1, code
+end
 -- Simplified xml2lua implementation
 local xml2lua = {}
 xml2lua.parser = function(handler)
@@ -337,8 +340,10 @@ function checkSWS()
     
 end
 -----------------BACKROUND STUFF-------------------------------------------------------------
+function consoleMSG(x)
+    reaper.ShowConsoleMsg(x..'\n')
+end
 function fetchXML(url)
-    consoleMSG('fetchXML start')
     local response = {}
     local _, code = http_socket.http.request{
         url = url,
@@ -346,22 +351,23 @@ function fetchXML(url)
             table.insert(response, chunk)
         end
     }
+    --consoleMSG('code: '..code)
 
-    if code == 200 then
-        --consoleMSG("Unable to fetch XML content. Please check your internet connection or the URL.\n")
+    if code ~= 200 then
+        -- Fehlermeldung in die Konsole schreiben
+        --reaper.ShowConsoleMsg("Unable to fetch XML content. Please check your internet connection or the URL.\n")
         return nil, code
     end
 
     return table.concat(response), code
 end
-function checkForNewVersion(currentVersion, xmlContent, manualCheck)
+
+function checkForNewVersion(currentVersion, xmlContent)
     if not xmlContent then
         if manualCheck then
-            reaper.ShowMessageBox("Unable to check for updates.\nPlease check yoour internet connection", "Error", 0)
+            reaper.ShowMessageBox("Unable to check for updates.\nPlease check your internet connection", "Error", 0)
         end
         return
-    else 
-
     end
 
     local parser = xml2lua.parser(handler)
@@ -379,45 +385,44 @@ function checkForNewVersion(currentVersion, xmlContent, manualCheck)
         end
         return t
     end
-    if xmlContent == true then
-        local function isNewerVersion(currentVersion, latestVersion)
 
-            local current = split(currentVersion)
-            local latest = split(latestVersion)
-    
-            for i = 1, math.max(#current, #latest) do
-                if (latest[i] or 0) > (current[i] or 0) then
-                    return true
-                elseif (latest[i] or 0) < (current[i] or 0) then
-                    return false
-                end
-            end
-            return false
-        end
-        
-        local latestVersion = versions[#versions] -- Letzte Version im Table
-        if isNewerVersion(currentVersion, latestVersion) then
-            if startup ~= nil then
-                openNewVersionWindow = true
-            end
-        else
-            if manualCheck then
-                openOldVersionWindow = true
+    local function isNewerVersion(currentVersion, latestVersion)
+        local current = split(currentVersion)
+        local latest = split(latestVersion)
+
+        for i = 1, math.max(#current, #latest) do
+            if (latest[i] or 0) > (current[i] or 0) then
+                return true
+            elseif (latest[i] or 0) < (current[i] or 0) then
+                return false
             end
         end
-        return latestVersion
+        return false
     end
+
+    local latestVersion = versions[#versions] -- Letzte Version im Table
+    if isNewerVersion(currentVersion, latestVersion) then
+        if manualCheck then
+            ShowNewVersionUpdateWindow(latestVersion)
+            openNewVersionWindow = true
+        else
+            openNewVersionWindow = true
+        end
+    else
+        if manualCheck then
+            openOldVersionWindow = true
+        end
+    end
+    return latestVersion
 end
 function manualUpdate()
     local xmlContent, code = fetchXML(page)
     if xmlContent then
-        checkForNewVersion(version, xmlContent, true)
+        manualCheck = true
+        checkForNewVersion(version, xmlContent)
     else
         reaper.ShowMessageBox("Unable to check for updates.\nPlease check yoour internet connection", "Error", 0)
     end
-end
-function consoleMSG(x)
-    reaper.ShowConsoleMsg(x..'\n')
 end
 function drawCenteredButton(ctx, text, buttonWidth, buttonHeight)
     local lines = {}
@@ -1223,7 +1228,9 @@ local function TCHelper_Window()
                 local rv = reaper.ShowMessageBox('Merged data', script_title, 0)
             end
             if ImGui.MenuItem(ctx, 'Update') then
+                manualCheck = true
                 manualUpdate()
+
             end
             reaper.ImGui_EndMenu(ctx)
         end
@@ -1494,7 +1501,7 @@ function ShowNewVersionUpdateWindow(latestVersion)
             end
 
             -- Text anzeigen
-            local text = "A new version (" .. latestVersion .. ") of TCHelper is available.\nPlease update to the latest version."
+            local text = "A new version (" .. (latestVersion or "unknown") .. ") of TCHelper is available.\nPlease update to the latest version."
             local lines = {}
             for line in text:gmatch("[^\n]+") do
                 table.insert(lines, line)
@@ -3452,11 +3459,10 @@ checkSendedData()
 defineMA3ModeOnFirstStrartup()
 copyReaperTemplate()
 local xmlContent, code = fetchXML(page)
-
 if xmlContent then
     
-    checkForNewVersion(version, xmlContent, false)
-    consoleMSG('xmlContent: '..xmlContent)
+    newVersion = checkForNewVersion(version, xmlContent, false)
+    --consoleMSG('xmlContent: '..xmlContent)
     --consoleMSG('code: '..code)
 else
     -- Keine Internetverbindung, aber TCHelper startet trotzdem
@@ -3608,8 +3614,10 @@ if networkChecked == true then
     openConnectionWindow()
 end
 ShowAboutWindow()
-ShowNewVersionUpdateWindow(latestVersion)
-ShowOldVersionUpdateWindow(latestVersion)
+ShowNewVersionUpdateWindow(newVersion)
+if manualCheck == true then
+    ShowOldVersionUpdateWindow(version)
+end
         reaper.ImGui_PopStyleColor(ctx, 57)
         reaper.ImGui_PopStyleVar(ctx, 32)
         reaper.ImGui_PopFont(ctx)
