@@ -10,7 +10,7 @@
 --   /TC_Helper/data/projectTemplate/*.RPP
 
 
-local version = '3.3.1'
+local version = '1.3.1'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
 local mode2BETA = false
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
@@ -338,6 +338,7 @@ function checkSWS()
 end
 -----------------BACKROUND STUFF-------------------------------------------------------------
 function fetchXML(url)
+    consoleMSG('fetchXML start')
     local response = {}
     local _, code = http_socket.http.request{
         url = url,
@@ -346,7 +347,8 @@ function fetchXML(url)
         end
     }
 
-    if code ~= 200 then
+    if code == 200 then
+        --consoleMSG("Unable to fetch XML content. Please check your internet connection or the URL.\n")
         return nil, code
     end
 
@@ -355,9 +357,11 @@ end
 function checkForNewVersion(currentVersion, xmlContent, manualCheck)
     if not xmlContent then
         if manualCheck then
-            reaper.ShowMessageBox("Unable to fetch XML content. Please check your internet connection or the URL.", "Error", 0)
+            reaper.ShowMessageBox("Unable to check for updates.\nPlease check yoour internet connection", "Error", 0)
         end
         return
+    else 
+
     end
 
     local parser = xml2lua.parser(handler)
@@ -376,8 +380,8 @@ function checkForNewVersion(currentVersion, xmlContent, manualCheck)
         return t
     end
     if xmlContent == true then
-        reaper.ShowMessageBox("XML Content is true", "Info", 0)
         local function isNewerVersion(currentVersion, latestVersion)
+
             local current = split(currentVersion)
             local latest = split(latestVersion)
     
@@ -390,7 +394,7 @@ function checkForNewVersion(currentVersion, xmlContent, manualCheck)
             end
             return false
         end
-    
+        
         local latestVersion = versions[#versions] -- Letzte Version im Table
         if isNewerVersion(currentVersion, latestVersion) then
             if startup ~= nil then
@@ -409,7 +413,7 @@ function manualUpdate()
     if xmlContent then
         checkForNewVersion(version, xmlContent, true)
     else
-        reaper.ShowMessageBox("Unable to fetch XML content. Please check your internet connection or the URL.", "Error", 0)
+        reaper.ShowMessageBox("Unable to check for updates.\nPlease check yoour internet connection", "Error", 0)
     end
 end
 function consoleMSG(x)
@@ -3447,17 +3451,16 @@ getTrackContent()
 checkSendedData()
 defineMA3ModeOnFirstStrartup()
 copyReaperTemplate()
-local latestVersion = "empty"
 local xmlContent, code = fetchXML(page)
+
 if xmlContent then
-    if version then
-        checkForNewVersion(version, xmlContent, false)
-    else
-        reaper.ShowConsoleMsg("Version is not defined. Skipping version check.\n")
-    end
+    
+    checkForNewVersion(version, xmlContent, false)
+    consoleMSG('xmlContent: '..xmlContent)
+    --consoleMSG('code: '..code)
 else
     -- Keine Internetverbindung, aber TCHelper startet trotzdem
-    reaper.ShowConsoleMsg("No internet connection. TCHelper will start without checking for updates.\n")
+    --reaper.ShowConsoleMsg("No internet connection. TCHelper will start without checking for updates.\n")
 end
 startup = true
 -- Stellen Sie sicher, dass latestVersion definiert ist
