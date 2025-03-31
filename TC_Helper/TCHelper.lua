@@ -1,5 +1,5 @@
 -- @description TCHelper
--- @version 3.3.2
+-- @version 3.3.3
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
@@ -10,7 +10,7 @@
 --   /TC_Helper/data/projectTemplate/*.RPP
 
 
-local version = '3.3.2'
+local version = '3.3.3'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
 local mode2BETA = false
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
@@ -153,7 +153,6 @@ end
 local addonCheck = true
 local NewCueNames = {} 
 local NewFadeTimes = {}
-local NewSeqNames = {} 
 local PLOT1_SIZE = 90
 local widgets = {}
 widgets.plots = {
@@ -870,10 +869,12 @@ function getCueNames()
     return oldCueName
 end
 function getSeqNames () 
+    local newSeqNames = {}
     local usedTracks = readTrackGUID('used')
     for i = 1, #usedTracks, 1 do
-        NewSeqNames[i] = loadedtracks[usedTracks[i]].name
+        newSeqNames[i] = loadedtracks[usedTracks[i]].name
     end
+    return newSeqNames
 end
 function getFadeTimes()
     local trackID = readTrackGUID('selected')
@@ -2209,32 +2210,42 @@ function renameTrackWindow()
 
     local usedTracks = readTrackGUID('used')
     local seqIDs = {}
-    if oldusedTracks ~= usedTracks then
-        getSeqNames()
-        oldusedTracks = usedTracks
+    local existingNames = {} -- Tabelle zur Überprüfung auf doppelte Namen
+
+    -- Initialisiere die Liste der neuen Sequenznamen, falls sie noch nicht existiert
+    if not newSeqNames or #newSeqNames ~= #usedTracks then
+        newSeqNames = getSeqNames()
     end
-    if not app.layout then
-        app.layout = {
-            selected = 0,
-        }
-    end
+
+    -- Bestehende Namen sammeln
     for i = 1, #usedTracks, 1 do
         seqIDs[i] = loadedtracks[usedTracks[i]].seqID
+        existingNames[newSeqNames[i]] = true
     end
+
     reaper.ImGui_Text(ctx, 'Sequence Names')
     if reaper.ImGui_BeginChild(ctx, 'left pane', paneWidth, windowHeight - 50, true) then
         for i = 1, #usedTracks, 1 do
             reaper.ImGui_SetNextItemWidth(ctx, textWidth)
-            if NewSeqNames[i] == nil then
-                NewSeqNames[i] = 'deleted'
+            if newSeqNames[i] == nil then
+                newSeqNames[i] = 'deleted'
             end
-            rv, NewSeqNames[i] = reaper.ImGui_InputText(ctx, 'Seq '..seqIDs[i], NewSeqNames[i])
+
+            -- Eingabefeld für den neuen Namen
+            local rv, newName = reaper.ImGui_InputText(ctx, 'Seq ' .. seqIDs[i], newSeqNames[i])
+
+            -- Speichere den neuen Namen in der Liste, wenn er geändert wurde
+            if rv then
+                newSeqNames[i] = newName
+            end
         end
         reaper.ImGui_EndChild(ctx)
     end
+
+    -- Button zum Schreiben der neuen Daten
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', buttonWidth, buttonHeight) then
-        renameTrack(NewSeqNames)
+        renameTrack(newSeqNames) -- Schreibe die neuen Namen in die Tracks
     end
 
     -- Dummy-Komponente hinzufügen, um die Fenstergrenzen zu validieren
