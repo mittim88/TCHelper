@@ -1945,7 +1945,14 @@ function CueListSetupWindow()
     ---------------Input Sequence ID---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 500, 80)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
-    rv, seqID = reaper.ImGui_InputText(ctx, 'Sequence ID', seqID)
+    seqID = tonumber(reaper.GetExtState('trackconfig', 'seqId')) or 1
+    local rv, newSeqID = reaper.ImGui_InputText(ctx, 'Sequence ID', tostring(seqID))
+
+    -- Wenn der Benutzer eine neue Zahl einträgt, aktualisiere die Basis
+    if rv and tonumber(newSeqID) then
+        seqID = tonumber(newSeqID)
+        reaper.SetExtState('trackconfig', 'seqId', tostring(seqID), true)
+    end
     reaper.ImGui_SetCursorPos(ctx, 500, 110)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, tcID = reaper.ImGui_InputText(ctx, 'Timecode ID', tcID)
@@ -2423,13 +2430,29 @@ function addTrack()
     local trackImage_path = script_path..dataFolder..iconFolder
     local newTrackGUID = {}
     local existingNames = {}
-
+    local existingSeqIDs = {}
     -- Sammle bestehende CueList-Namen
     local usedTracks = readTrackGUID('used')
     for i = 1, #usedTracks do
         local trackName = loadedtracks[usedTracks[i]].name
         existingNames[trackName] = true
     end
+ -- Sammle bestehende Sequence IDs
+ local usedTracks = readTrackGUID('used')
+ for i = 1, #usedTracks do
+     local trackSeqID = tonumber(loadedtracks[usedTracks[i]].seqID)
+     if trackSeqID then
+         existingSeqIDs[trackSeqID] = true
+     end
+ end
+
+ -- Stelle sicher, dass die Sequence ID eindeutig ist
+ seqID = tonumber(reaper.GetExtState('trackconfig', 'seqId')) or 1
+ while existingSeqIDs[seqID] do
+     seqID = seqID + 1
+ end
+ reaper.SetExtState('trackconfig', 'seqId', tostring(seqID + 1), true)
+    
     reaper.InsertTrackAtIndex(newTrackID, true)
     if selectedBtnOption == btnNames[1] then -------------CUELIST
         selectedIcon = trackIcon.name[1]
@@ -2462,6 +2485,7 @@ function addTrack()
         green = 198
         blue = 142
     end
+
     -- Stelle sicher, dass der CueList-Name eindeutig ist
     cueListName = ensureUniqueSeqName(cueListName, existingNames)
 
@@ -2485,7 +2509,7 @@ function addTrack()
     tracks[newTrackGUID].pageID = pageID
     tracks[newTrackGUID].seqID = seqID
     tracks[newTrackGUID].execoption = buttonName
-    SetupSendedDataTrack (newTrackGUID)
+    SetupSendedDataTrack(newTrackGUID)
     getTrackContent()
 end
 function deleteTrack()
@@ -2519,6 +2543,12 @@ function deleteTrack()
             end
             reaper.DeleteTrack(track)
             loadedtracks[selectedTrackGUID] = nil
+
+            -- Reduziere die Seq ID um 1
+            local currentSeqID = tonumber(reaper.GetExtState('trackconfig', 'seqId')) or 1
+            if currentSeqID > 1 then
+                reaper.SetExtState('trackconfig', 'seqId', tostring(currentSeqID - 1), true)
+            end
         end      
         reaper.PreventUIRefresh(-1) -- Enable UI updates
         reaper.UpdateArrange() -- Refresh the GUI
