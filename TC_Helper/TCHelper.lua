@@ -84,6 +84,7 @@ local clipboard = {}
 local previousTrackGUID = nil
 local oldusedTracks = nil
 local eventAdded = false 
+local eventRenamed = false
 local mainDocked = false
 local cueDocked = false
 local trackDocked = false
@@ -898,6 +899,19 @@ function getFadeTimes()
         end
     end
     return oldFadeTime
+end
+function ensureUniqueSeqName(seqName, existingNames)
+    -- Falls der Name bereits existiert, füge eine Nummer an
+    local uniqueName = seqName
+    local counter = 1
+    while existingNames[uniqueName] do
+        uniqueName = seqName .. " -" .. counter
+        counter = counter + 1
+    end
+
+    -- Füge den eindeutigen Namen zur Liste der bestehenden Namen hinzu
+    existingNames[uniqueName] = true
+    return uniqueName
 end
 function checkTCHelperTracks()
     local selTrack = readTrackGUID('selected')
@@ -1907,7 +1921,7 @@ function CueListSetupWindow()
     local rv, script_path = isInstalledViaReapack()
     local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
     local logoImage_texture = reaper.ImGui_CreateImage(logoImage_path)
-    ImGui.SeparatorText(ctx, 'SETUP CUELIST')
+    ImGui.SeparatorText(ctx, 'SETUP SEQUENCE')
     
     -- Fenstergröße abrufen
     local windowWidth, windowHeight = reaper.ImGui_GetWindowSize(ctx)
@@ -1926,7 +1940,7 @@ function CueListSetupWindow()
     ---------------Input Cuelist Name---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 9, 80)
     reaper.ImGui_SetNextItemWidth(ctx, 300)
-    rv, cueListName = reaper.ImGui_InputText(ctx, 'Cuelist Name', cueListName)
+    rv, cueListName = reaper.ImGui_InputText(ctx, 'Sequence Name', cueListName)
     cueListName = replaceSpecialCharacters(cueListName)
     ---------------Input Sequence ID---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 500, 80)
@@ -2213,8 +2227,9 @@ function renameTrackWindow()
     local existingNames = {} -- Tabelle zur Überprüfung auf doppelte Namen
 
     -- Initialisiere die Liste der neuen Sequenznamen, falls sie noch nicht existiert
-    if not newSeqNames or #newSeqNames ~= #usedTracks then
+    if not newSeqNames or #newSeqNames ~= #usedTracks or trackRenamed  then
         newSeqNames = getSeqNames()
+        trackRenamed = false
     end
 
     -- Bestehende Namen sammeln
@@ -2341,6 +2356,7 @@ function renameCuesWindow()
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', buttonWidth, 80) then
         renameItems()
+        
     end
 
     -- Dummy-Komponente hinzufügen, um die Fenstergrenzen zu validieren
@@ -2406,7 +2422,14 @@ function addTrack()
     local rv, script_path = isInstalledViaReapack()
     local trackImage_path = script_path..dataFolder..iconFolder
     local newTrackGUID = {}
-    local trackName = 'empty'
+    local existingNames = {}
+
+    -- Sammle bestehende CueList-Namen
+    local usedTracks = readTrackGUID('used')
+    for i = 1, #usedTracks do
+        local trackName = loadedtracks[usedTracks[i]].name
+        existingNames[trackName] = true
+    end
     reaper.InsertTrackAtIndex(newTrackID, true)
     if selectedBtnOption == btnNames[1] then -------------CUELIST
         selectedIcon = trackIcon.name[1]
@@ -2439,6 +2462,9 @@ function addTrack()
         green = 198
         blue = 142
     end
+    -- Stelle sicher, dass der CueList-Name eindeutig ist
+    cueListName = ensureUniqueSeqName(cueListName, existingNames)
+
     if MAmode == 'Mode 3' then
         trackName = '|'..cueListName .. '|SeqID:' .. seqID ..'|'..buttonName .. '|TC ID:' .. tcID..'|'
     elseif MAmode == 'Mode 2' then
@@ -2505,23 +2531,47 @@ end
 function renameTrack(newSeqNames)
     getTrackContent()
     local trackGUIDs = readTrackGUID('used')
-    local newName = {}
+    local existingNames = {}
+
+    -- Sammle bestehende Namen, um sie in ensureUniqueSeqName zu verwenden
+    for i = 1, #trackGUIDs do
+        local trackName = loadedtracks[trackGUIDs[i]].name
+        existingNames[trackName] = true
+    end
+
     for i = 1, #newSeqNames, 1 do
         local trackItem = reaper.BR_GetMediaTrackByGUID(0, trackGUIDs[i])
-        local ret, oldName = reaper.GetTrackName(trackItem)
-        local oldSeqID = loadedtracks[trackGUIDs[i]].seqID
-        local oldButtonName = loadedtracks[trackGUIDs[i]].execoption
-        local oldTCID = loadedtracks[trackGUIDs[i]].execoption
-        if MAmode == 'Mode 3' then
-            newName = '|'..newSeqNames[i] .. '|SeqID:' .. oldSeqID ..'|'..oldButtonName .. '|TC ID:' .. oldTCID..'|'
-        elseif MAmode == 'Mode 2' then
-            local oldPageID = loadedtracks[trackGUIDs[i]].pageID
-            local oldExecID = loadedtracks[trackGUIDs[i]].execID
-            newName = '|'..newSeqNames[i] .. '|SeqID:' .. oldSeqID ..'|'..oldButtonName .. '|TC ID:' .. oldTCID..'|Page:'..oldPageID..'|Exec ID:'..oldExecID..'|'
+        if trackItem then
+            local oldSeqID = loadedtracks[trackGUIDs[i]].seqID
+            local oldButtonName = loadedtracks[trackGUIDs[i]].execoption
+            local oldTCID = loadedtracks[trackGUIDs[i]].tcID
+
+            -- Überprüfe und stelle sicher, dass der neue Name eindeutig ist
+            local uniqueName = ensureUniqueSeqName(newSeqNames[i], existingNames)
+
+            -- Generiere den neuen Namen basierend auf den bestehenden Daten
+            local newName = ''
+            if MAmode == 'Mode 3' then
+                newName = '|' .. uniqueName .. '|SeqID:' .. oldSeqID .. '|' .. oldButtonName .. '|TC ID:' .. oldTCID .. '|'
+            elseif MAmode == 'Mode 2' then
+                local oldPageID = loadedtracks[trackGUIDs[i]].pageID
+                local oldExecID = loadedtracks[trackGUIDs[i]].execID
+                newName = '|' .. uniqueName .. '|SeqID:' .. oldSeqID .. '|' .. oldButtonName .. '|TC ID:' .. oldTCID .. '|Page:' .. oldPageID .. '|Exec ID:' .. oldExecID .. '|'
+            end
+
+            -- Aktualisiere den Track-Namen
+            reaper.GetSetMediaTrackInfo_String(trackItem, 'P_NAME', newName, true)
+
+            -- Aktualisiere den geladenen Track-Datensatz
+            loadedtracks[trackGUIDs[i]].name = uniqueName
+
+            -- Füge den neuen Namen zur Liste der bestehenden Namen hinzu
+            existingNames[uniqueName] = true
         end
-        reaper.GetSetMediaTrackInfo_String(trackItem, 'P_NAME', newName, true)
     end
+
     getTrackContent()
+    trackRenamed = true
 end
 ---------------Delete Selection-------------------------------------------------------------------
 function deleteSelection()
