@@ -1,5 +1,5 @@
 -- @description TCHelper
--- @version 3.3.4
+-- @version 3.3.5
 -- @author mittim88
 -- @provides
 --   /TC_Helper/*.lua
@@ -10,7 +10,7 @@
 --   /TC_Helper/data/projectTemplate/*.RPP
 
 
-local version = '3.3.4'
+local version = '3.3.5'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
 local mode2BETA = false
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
@@ -767,10 +767,17 @@ end
 function checkItemStatus()
     local trackGUID = readTrackGUID('used')
     for i = 1, #trackGUID, 1 do
-        local itemGUID = readItemGUID(trackGUID[i])
-        for j = 1, #itemGUID do
-            if sendedData[trackGUID[i]].cue[itemGUID[j]].id == nil then
-                SetupSendedDataItem (trackGUID[i],itemGUID[j])
+        if sendedData[trackGUID[i]] and sendedData[trackGUID[i]].cue then
+            local itemGUID = readItemGUID(trackGUID[i])
+            for j = 1, #itemGUID do
+                if sendedData[trackGUID[i]].cue[itemGUID[j]] and sendedData[trackGUID[i]].cue[itemGUID[j]].id == nil then
+                    SetupSendedDataItem(trackGUID[i], itemGUID[j])
+                end
+            end
+        else
+            -- Initialisiere die fehlenden Daten, falls sie nicht existieren
+            if not sendedData[trackGUID[i]] then
+                SetupSendedDataTrack(trackGUID[i])
             end
         end
     end
@@ -1012,7 +1019,7 @@ function pasteItems()
 
     -- Überprüfen, ob die Zwischenablage leer ist
     if #clipboard == 0 then
-        reaper.ShowMessageBox("clipboard is empty", "Fehler", 0)
+        reaper.ShowMessageBox("Clipboard is empty", "Error", 0)
         return
     end
 
@@ -1026,35 +1033,44 @@ function pasteItems()
 
         -- Original-Item finden
         local originalItem = reaper.BR_GetMediaItemByGUID(0, itemGUID)
-        if originalItem then
-            -- Original-Startzeit und Länge
-            local originalStart = reaper.GetMediaItemInfo_Value(originalItem, "D_POSITION")
-            local originalLength = reaper.GetMediaItemInfo_Value(originalItem, "D_LENGTH")
+        if not originalItem then
+            reaper.ShowMessageBox("Original item not found for GUID: " .. tostring(itemGUID), "Error", 0)
+            return
+        end
 
-            -- Neue Startzeit basierend auf der Cursor-Position und dem Timing-Abstand
-            local newStart = cursorPos + (originalStart - reaper.GetMediaItemInfo_Value(reaper.BR_GetMediaItemByGUID(0, clipboard[1].guid), "D_POSITION"))
+        -- Original-Startzeit und Länge
+        local originalStart = reaper.GetMediaItemInfo_Value(originalItem, "D_POSITION")
+        local originalLength = reaper.GetMediaItemInfo_Value(originalItem, "D_LENGTH")
 
-            -- Neues Media-Item erstellen
-            local trackID = reaper.BR_GetMediaTrackByGUID(0, originalTrackGUID)
-            if trackID then
-                local newItem = reaper.AddMediaItemToTrack(trackID)
-                if newItem then
-                    -- Setze die Position und Länge des neuen Items
-                    reaper.SetMediaItemInfo_Value(newItem, "D_POSITION", newStart)
-                    reaper.SetMediaItemInfo_Value(newItem, "D_LENGTH", originalLength)
+        -- Neue Startzeit basierend auf der Cursor-Position und dem Timing-Abstand
+        local newStart = cursorPos + (originalStart - reaper.GetMediaItemInfo_Value(reaper.BR_GetMediaItemByGUID(0, clipboard[1].guid), "D_POSITION"))
 
-                    -- Kopiere die Notizen vom Original-Item
-                    local rv, notes = reaper.GetSetMediaItemInfo_String(originalItem, "P_NOTES", "", false)
-                    reaper.GetSetMediaItemInfo_String(newItem, "P_NOTES", notes, true)
-                end
-            end
-            checkDuplicateCueNames()
-            getTrackContent()
-            eventAdded = true
+        -- Neues Media-Item erstellen
+        local trackID = reaper.BR_GetMediaTrackByGUID(0, originalTrackGUID)
+        if not trackID then
+            reaper.ShowMessageBox("Track not found for GUID: " .. tostring(originalTrackGUID), "Error", 0)
+            return
+        end
+
+        local newItem = reaper.AddMediaItemToTrack(trackID)
+        if newItem then
+            -- Setze die Position und Länge des neuen Items
+            reaper.SetMediaItemInfo_Value(newItem, "D_POSITION", newStart)
+            reaper.SetMediaItemInfo_Value(newItem, "D_LENGTH", originalLength)
+
+            -- Kopiere die Notizen vom Original-Item
+            local rv, notes = reaper.GetSetMediaItemInfo_String(originalItem, "P_NOTES", "", false)
+            reaper.GetSetMediaItemInfo_String(newItem, "P_NOTES", notes, true)
+        else
+            reaper.ShowMessageBox("Failed to create new media item", "Error", 0)
+            return
         end
     end
-    -- Ausgabe zur Bestätigung
-    --reaper.ShowConsoleMsg("Eingefügt " .. #clipboard .. " Events an die Cursor-Position.\n")
+
+    -- Aktualisiere die Track-Inhalte und überprüfe auf doppelte Namen
+    checkDuplicateCueNames()
+    getTrackContent()
+    eventAdded = true
 end
 function openPDFManual()
     local rv, script_path = isInstalledViaReapack()
