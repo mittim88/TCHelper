@@ -1753,28 +1753,32 @@ function connectionWindowMode3()
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
     reaper.ImGui_SameLine(ctx)
-    if loopback == 'false' then
+    if hostIP == '127.0.0.1' and loopback == 'true' then
+        -- Button ist grün, wenn die IP 127.0.0.1 ist und Loopback aktiviert ist
         ImGui.PushID(ctx, 1)
-        ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 0, 1, 0.3, 1.0))
-        ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.5, 1.0))
-        ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 0, 1, 0,5, 1.0))
-        if reaper.ImGui_Button(ctx, '    Connect to \nGrandMA3 OnPC', 250, 70) then
-            hostIP = '127.0.0.1'
-            loopback = 'true'
-            reaper.SetExtState('console','3onPC', loopback, true)
+        ImGui.PushStyleColor(ctx, ImGui.Col_Button(), Color.HSV(1 / 3, 1, 0.3, 1.0))
+        ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 3, 1, 0.5, 1.0))
+        ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(), Color.HSV(1 / 3, 1, 0.5, 1.0))
+        if reaper.ImGui_Button(ctx, '   Connected to \nGrandMA3 OnPC', 250, 70) then
+            -- Deaktiviere Loopback und setze die IP zurück
+            local ipOld = reaper.GetExtState('network', 'ip')
+            hostIP = ipOld
+            loopback = 'false'
+            reaper.SetExtState('console', '3onPC', loopback, true)
         end
         ImGui.PopStyleColor(ctx, 3)
         ImGui.PopID(ctx)
     else
+        -- Button ist rot, wenn die IP nicht 127.0.0.1 ist oder Loopback deaktiviert ist
         ImGui.PushID(ctx, 1)
-        ImGui.PushStyleColor(ctx, ImGui.Col_Button(),        Color.HSV(1 / 3, 1, 0.3, 1.0))
-        ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 3, 1, 0.5, 1.0))
-        ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(),  Color.HSV(1 / 3, 1, 0.5, 1.0))
-        if reaper.ImGui_Button(ctx, '   Connected to \nGrandMA3 OnPC', 250, 70) then
-            local ipOld = reaper.GetExtState('network','ip')
-            hostIP = ipOld
-            loopback = 'false'
-            reaper.SetExtState('console','3onPC', loopback, true)
+        ImGui.PushStyleColor(ctx, ImGui.Col_Button(), Color.HSV(1 / 0, 1, 0.3, 1.0))
+        ImGui.PushStyleColor(ctx, ImGui.Col_ButtonHovered(), Color.HSV(1 / 0, 1, 0.5, 1.0))
+        ImGui.PushStyleColor(ctx, ImGui.Col_ButtonActive(), Color.HSV(1 / 0, 1, 0.5, 1.0))
+        if reaper.ImGui_Button(ctx, '    Connect to \nGrandMA3 OnPC', 250, 70) then
+            -- Aktiviere Loopback und setze die IP auf 127.0.0.1
+            hostIP = '127.0.0.1'
+            loopback = 'true'
+            reaper.SetExtState('console', '3onPC', loopback, true)
         end
         ImGui.PopStyleColor(ctx, 3)
         ImGui.PopID(ctx)
