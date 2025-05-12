@@ -75,6 +75,7 @@ local loadProjectMarker = false
 local cuesChecked = false
 local seqChecked = false
 local networkChecked = false
+local shortcutsChecked = false
 local dummyIPstring = '--Enter console IP--'
 local tracks = {}
 local loadedtracks = {}
@@ -1160,6 +1161,20 @@ function copyFile(source, destination)
     --     reaper.ShowMessageBox("Fehler beim Kopieren der Datei: " .. source.. ' nach: '..destination, "Fehler", 0)
     -- end
 end
+function checkShortcuts()
+    if not trackShortcuts then return end
+
+    local usedTracks = readTrackGUID("used")
+    for _, trackGUID in ipairs(usedTracks) do
+        local assignedKey = trackShortcuts[trackGUID]
+        if assignedKey then
+            local imguiKeyFunc = reaper["ImGui_Key_" .. assignedKey]
+            if imguiKeyFunc and reaper.ImGui_IsKeyPressed(ctx, imguiKeyFunc()) then
+                addItem(trackGUID) -- Führe addItem mit dem Shortcut-Track aus
+            end
+        end
+    end
+end
 ---SELECTION TOOLS
 function snapCursorToSelection()
     local selectedItem = getFirstTouchedMediaItem()
@@ -1297,6 +1312,9 @@ local function TCHelper_Window()
         if reaper.ImGui_BeginMenu(ctx, 'Settings') then
             if ImGui.MenuItem(ctx, 'Network') then
                 networkChecked = true
+            end
+            if ImGui.MenuItem(ctx, 'Shortcuts') then
+                shortcutsChecked = true -- Variable, um das Shortcut-Fenster zu öffnen
             end
             if reaper.ImGui_BeginMenu(ctx, 'Mode') then
                 local modeCheck2 = false
@@ -1793,6 +1811,60 @@ function connectionWindowMode3()
         renumberItems()
         reaper.ImGui_SameLine(ctx)
     end ]]
+end
+function openShortcutWindow()
+    reaper.ImGui_SetNextWindowSize(ctx, 400, 300, reaper.ImGui_Cond_FirstUseEver())
+    local visible, open = reaper.ImGui_Begin(ctx, "Shortcut Settings", true)
+    if visible then
+        reaper.ImGui_Text(ctx, "Assign Shortcuts to Create Events in Tracks")
+        reaper.ImGui_Separator(ctx)
+
+        -- Shortcuts-Tabelle für jeden Track
+        if not trackShortcuts then
+            trackShortcuts = {}
+        end
+
+        -- Unterstützte Tasten
+        local supportedKeys = {
+            "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+            "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
+            "-", "=", "[", "]", ";", "'", ",", ".", "/", "\\", "`", " "
+        }
+
+        -- Tracks durchlaufen und Shortcuts anzeigen
+        local usedTracks = readTrackGUID("used")
+        for i, trackGUID in ipairs(usedTracks) do
+            local trackName = loadedtracks[trackGUID] and loadedtracks[trackGUID].name or "Track " .. i
+            reaper.ImGui_Text(ctx, trackName .. ":")
+            reaper.ImGui_SameLine(ctx)
+
+            -- Aktuellen Shortcut anzeigen oder "Assign Key" anzeigen
+            local currentShortcut = trackShortcuts[trackGUID] or "Assign Key"
+            if reaper.ImGui_Button(ctx, currentShortcut, 100, 20) then
+                -- Wenn der Shortcut bereits zugewiesen ist, erneut aktivieren
+                if assigningShortcut == trackGUID then
+                    assigningShortcut = nil -- Deaktivieren
+                else
+                    assigningShortcut = trackGUID -- Shortcut-Zuweisung aktivieren
+                end
+            end
+
+            -- Wenn Shortcut-Zuweisung aktiv ist, warte auf Tastendruck
+            if assigningShortcut == trackGUID then
+                for _, key in ipairs(supportedKeys) do
+                    local imguiKeyFunc = reaper["ImGui_Key_" .. key]
+                    if imguiKeyFunc and reaper.ImGui_IsKeyPressed(ctx, imguiKeyFunc()) then
+                        trackShortcuts[trackGUID] = key -- Shortcut speichern
+                        assigningShortcut = nil -- Zuweisung beenden
+                        break
+                    end
+                end
+            end
+        end
+
+        reaper.ImGui_End(ctx)
+    end
+    return open
 end
 function ToolsWindow()    
     local windowWidth, windowHeight = reaper.ImGui_GetWindowSize(ctx)
@@ -2686,12 +2758,12 @@ function deleteSelection()
     --reaper.ShowConsoleMsg('\n--DELETE ENDED--')
 end
 ---------------ADD Item --------------------------------------------------------------------
-function addItem()
+function addItem(trackGUID)
     getTrackContent()
     noTrackError()
     local retval
     local selected_trk = reaper.GetSelectedTrack(0, 0)
-    local trackGUID = readTrackGUID('selected')
+    trackGUID = trackGUID or readTrackGUID('selected') -- Verwende den übergebenen Track oder den ausgewählten Track
     local playPos = reaper.GetPlayPosition()
     local cursorpos = reaper.GetCursorPosition()
     local media_item = nil
@@ -2699,55 +2771,64 @@ function addItem()
     local pressNr = cueNr
     local itemcount = getItemCount()
 
-    if selected_trk == nil then
-        selected_trk = 'noTrack'
-    else
-        media_item = reaper.AddMediaItemToTrack(selected_trk)
-        local insertTime = -1
-        local playState = reaper.GetPlayState()
-        if playState == 1 then
-            insertTime = playPos
-        else
-            insertTime = cursorpos
-        end
-    
-        if selectedOption == 'Cue List' then
-            itemName = '|' ..inputCueName ..'|\n|' ..loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. cueNr .. '|\n|Fadetime: ' ..fadetime .. '|'
-        elseif selectedOption == 'Flash Button' or 'Temp Button' then
-            itemName = '|' ..inputCueName ..'|\n|' ..loadedtracks[trackGUID].execoption .. '|\n|Press: ' .. pressNr .. '|\n|Fadetime: ' ..fadetime .. '|\n|Hold: ' .. holdtime .. '|'
-            pressNr = pressNr + 1
-        end
-        reaper.SetMediaItemInfo_Value(media_item, "D_POSITION", insertTime)
-        if selectedOption == 'Cuelist' then
-            reaper.SetMediaItemInfo_Value(media_item, "D_LENGTH", 10)
-        elseif selectedOption == 'Flash Button' or 'Temp Button' then
-            local holdnum = tonumber(holdtime)
-            local fadenum = tonumber(fadetime)
-            local endTime = holdnum + fadenum
-            reaper.SetMediaItemInfo_Value(media_item, "D_LENGTH", holdnum)
-        end
-        local selectedTrack = reaper.GetSelectedTrack(0, 0)
-        if selectedTrack ~= nil then
-            local itemCount = reaper.CountTrackMediaItems(selectedTrack)
-            if itemCount > 0 then
-                reaper.GetSetMediaItemInfo_String(media_item, "P_NOTES", itemName, true)
-            end
-        end
-        local newCueGUID = reaper.BR_GetMediaItemGUID(media_item)
-        if tracks[trackGUID] == nil then
-            tracks[trackGUID] = {}
-            tracks[trackGUID] = dummytrack
-        end
-        if tracks[trackGUID].cue[newCueGUID] == nil then
-            tracks[trackGUID].cue[newCueGUID] = {}
-        end
-        tracks[trackGUID].cue[newCueGUID].id = newCueGUID
-        tracks[trackGUID].cue[newCueGUID].name = itemName
-        tracks[trackGUID].cue[newCueGUID].fadetime = fadetime
-        SetupSendedDataItem(trackGUID, newCueGUID)
-        renumberItems()
+    if not trackGUID or not selected_trk then
+        reaper.ShowMessageBox("No valid track selected or provided.", "Error", 0)
+        return
     end
-    --checkDuplicateCueNames()
+
+    local track = reaper.BR_GetMediaTrackByGUID(0, trackGUID)
+    if not track then
+        reaper.ShowMessageBox("Track not found.", "Error", 0)
+        return
+    end
+
+    media_item = reaper.AddMediaItemToTrack(track)
+    local insertTime = -1
+    local playState = reaper.GetPlayState()
+    if playState == 1 then
+        insertTime = playPos
+    else
+        insertTime = cursorpos
+    end
+
+    if selectedOption == 'Cue List' then
+        itemName = '|' .. inputCueName .. '|\n|' .. loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. cueNr .. '|\n|Fadetime: ' .. fadetime .. '|'
+    elseif selectedOption == 'Flash Button' or 'Temp Button' then
+        itemName = '|' .. inputCueName .. '|\n|' .. loadedtracks[trackGUID].execoption .. '|\n|Press: ' .. pressNr .. '|\n|Fadetime: ' .. fadetime .. '|\n|Hold: ' .. holdtime .. '|'
+        pressNr = pressNr + 1
+    end
+
+    reaper.SetMediaItemInfo_Value(media_item, "D_POSITION", insertTime)
+    if selectedOption == 'Cuelist' then
+        reaper.SetMediaItemInfo_Value(media_item, "D_LENGTH", 10)
+    elseif selectedOption == 'Flash Button' or 'Temp Button' then
+        local holdnum = tonumber(holdtime)
+        local fadenum = tonumber(fadetime)
+        local endTime = holdnum + fadenum
+        reaper.SetMediaItemInfo_Value(media_item, "D_LENGTH", holdnum)
+    end
+
+    if track then
+        local itemCount = reaper.CountTrackMediaItems(track)
+        if itemCount > 0 then
+            reaper.GetSetMediaItemInfo_String(media_item, "P_NOTES", itemName, true)
+        end
+    end
+
+    local newCueGUID = reaper.BR_GetMediaItemGUID(media_item)
+    if tracks[trackGUID] == nil then
+        tracks[trackGUID] = {}
+        tracks[trackGUID] = dummytrack
+    end
+    if tracks[trackGUID].cue[newCueGUID] == nil then
+        tracks[trackGUID].cue[newCueGUID] = {}
+    end
+    tracks[trackGUID].cue[newCueGUID].id = newCueGUID
+    tracks[trackGUID].cue[newCueGUID].name = itemName
+    tracks[trackGUID].cue[newCueGUID].fadetime = fadetime
+    SetupSendedDataItem(trackGUID, newCueGUID)
+    renumberItems()
+
     getTrackContent()
     eventAdded = true
 end
@@ -3586,6 +3667,7 @@ local function loop()
     if addonCheck == true then
         renumberItems()
         --setIPAdress()
+        checkShortcuts() -- Überprüfe Tastendrücke
         if liveupdatebox == true then --LIVE UPDATE IM LOOP AKTIVIERT
             mergeDataOption()
         end
@@ -3723,6 +3805,9 @@ if seqChecked == true then
 end
 if networkChecked == true then
     openConnectionWindow()
+end
+if shortcutsChecked == true then
+    shortcutsChecked = openShortcutWindow()
 end
 ShowAboutWindow()
 ShowNewVersionUpdateWindow(newVersion)
