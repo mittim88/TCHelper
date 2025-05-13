@@ -1248,8 +1248,27 @@ function loadShortcuts()
                 trackShortcuts[trackGUID] = defaultKeys[i]
             end
         end
+        -- reaper.ShowConsoleMsg("trackShortcuts: " .. tostring(trackShortcuts) .. "\n")
+
         saveShortcuts() -- Speichere die Standard-Shortcuts
     end
+end
+function initializeTrackShortcuts()
+    -- Sicherstellen, dass trackShortcuts initialisiert ist
+    trackShortcuts = trackShortcuts or {}
+
+    -- Hole die GUIDs der "used" Tracks
+    local usedTracks = readTrackGUID("used")
+    local defaultKeys = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
+
+    -- Weisen Sie den ersten 9 "used" Tracks die Shortcuts 1-9 zu
+    for i = 1, math.min(#usedTracks, 9) do
+        local trackGUID = usedTracks[i]
+        trackShortcuts[trackGUID] = defaultKeys[i]
+    end
+
+    -- Optional: Shortcuts speichern
+    saveShortcuts()
 end
 function saveGlobalShortcuts()
     local serializedShortcuts = tableToString(globalShortcuts)
@@ -2798,6 +2817,9 @@ function openConnectionWindow()
 end
 ---------------ADD Track -------------------------------------------------------------------
 function addTrack()
+    -- Stelle sicher, dass trackShortcuts initialisiert ist
+    trackShortcuts = trackShortcuts or {}
+
     local red = 0
     local green = 0
     local blue = 0
@@ -2809,28 +2831,29 @@ function addTrack()
     local newTrackGUID = {}
     local existingNames = {}
     local existingSeqIDs = {}
+
     -- Sammle bestehende CueList-Namen
     local usedTracks = readTrackGUID('used')
     for i = 1, #usedTracks do
         local trackName = loadedtracks[usedTracks[i]].name
         existingNames[trackName] = true
     end
- -- Sammle bestehende Sequence IDs
- local usedTracks = readTrackGUID('used')
- for i = 1, #usedTracks do
-     local trackSeqID = tonumber(loadedtracks[usedTracks[i]].seqID)
-     if trackSeqID then
-         existingSeqIDs[trackSeqID] = true
-     end
- end
 
- -- Stelle sicher, dass die Sequence ID eindeutig ist
- seqID = tonumber(reaper.GetExtState('trackconfig', 'seqId')) or 1
- while existingSeqIDs[seqID] do
-     seqID = seqID + 1
- end
- reaper.SetExtState('trackconfig', 'seqId', tostring(seqID + 1), true)
-    
+    -- Sammle bestehende Sequence IDs
+    for i = 1, #usedTracks do
+        local trackSeqID = tonumber(loadedtracks[usedTracks[i]].seqID)
+        if trackSeqID then
+            existingSeqIDs[trackSeqID] = true
+        end
+    end
+
+    -- Stelle sicher, dass die Sequence ID eindeutig ist
+    seqID = tonumber(reaper.GetExtState('trackconfig', 'seqId')) or 1
+    while existingSeqIDs[seqID] do
+        seqID = seqID + 1
+    end
+    reaper.SetExtState('trackconfig', 'seqId', tostring(seqID + 1), true)
+
     reaper.InsertTrackAtIndex(newTrackID, true)
     if selectedBtnOption == btnNames[1] then -------------CUELIST
         selectedIcon = trackIcon.name[1]
@@ -2877,7 +2900,7 @@ function addTrack()
     reaper.GetSetMediaTrackInfo_String(track, 'P_NAME', trackName, true)
     reaper.GetSetMediaTrackInfo_String(track, 'P_ICON', iconPath, true)
     reaper.SetTrackColor(track, reaper.ColorToNative(red, green, blue))
-    
+
     newTrackGUID = reaper.GetTrackGUID(track)
     tracks[newTrackGUID] = {}
     tracks[newTrackGUID] = dummytrack
@@ -2888,6 +2911,10 @@ function addTrack()
     tracks[newTrackGUID].seqID = seqID
     tracks[newTrackGUID].execoption = buttonName
     SetupSendedDataTrack(newTrackGUID)
+
+    -- Füge den neuen Track zu trackShortcuts hinzu
+    trackShortcuts[newTrackGUID] = nil
+
     getTrackContent()
 end
 function deleteTrack()
@@ -3955,6 +3982,7 @@ getTrackContent()
 checkSendedData()
 defineMA3ModeOnFirstStrartup()
 copyReaperTemplate()
+initializeTrackShortcuts()
 loadShortcuts()
 loadGlobalShortcuts()
 local xmlContent, code = fetchXML(page)
