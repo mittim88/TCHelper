@@ -117,6 +117,8 @@ local projectTemplateName = 'TCHelper Project.RPP'
 local BigLogoWidth = 130
 local BigLogoHeight = 110
 local BigLogoY = -10
+local assigningShortcut = nil -- Speichert den TrackGUID, für den ein Shortcut zugewiesen wird
+local trackShortcuts = trackShortcuts or {}
 --------------------------------------------------------------- 
 dummytrack.id = 'dummyTrackID'
 dummytrack.name = 'dummySeqName'
@@ -362,7 +364,36 @@ function fetchXML(url)
 
     return table.concat(response), code
 end
+function tableToString(tbl)
+    local result = {}
+    local function serialize(tbl, indent)
+        for k, v in pairs(tbl) do
+            local key = type(k) == "string" and string.format("%q", k) or tostring(k)
+            if type(v) == "table" then
+                table.insert(result, string.format("%s[%s] = {", indent, key))
+                serialize(v, indent .. "  ")
+                table.insert(result, string.format("%s},", indent))
+            else
+                local value = type(v) == "string" and string.format("%q", v) or tostring(v)
+                table.insert(result, string.format("%s[%s] = %s,", indent, key, value))
+            end
+        end
+    end
+    table.insert(result, "{")
+    serialize(tbl, "  ")
+    table.insert(result, "}")
+    return table.concat(result, "\n")
+end
 
+-- Deserialisiert einen String in eine Tabelle
+function stringToTable(str)
+    local func = load("return " .. str)
+    if func then
+        return func()
+    else
+        return nil
+    end
+end
 function checkForNewVersion(currentVersion, xmlContent)
     if not xmlContent then
         if manualCheck then
@@ -1162,6 +1193,9 @@ function copyFile(source, destination)
     -- end
 end
 function checkShortcuts()
+    -- Verhindere das Erstellen von Events, wenn ein Shortcut zugewiesen wird
+    if assigningShortcut then return end
+
     if not trackShortcuts then return end
 
     local usedTracks = readTrackGUID("used")
@@ -1170,9 +1204,93 @@ function checkShortcuts()
         if assignedKey then
             local imguiKeyFunc = reaper["ImGui_Key_" .. assignedKey]
             if imguiKeyFunc and reaper.ImGui_IsKeyPressed(ctx, imguiKeyFunc()) then
+                updateInputCueName(trackGUID)
                 addItem(trackGUID) -- Führe addItem mit dem Shortcut-Track aus
             end
         end
+    end
+
+    -- Shortcut für Play/Pause (z. B. Taste "P")
+    if reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_P()) then
+        togglePlayPause()
+    end
+
+    -- Shortcut für das Erstellen eines Cues im ausgewählten Track (z. B. Taste "C")
+    if reaper.ImGui_IsKeyPressed(ctx, reaper.ImGui_Key_C()) then
+        createCueInSelectedTrack()
+    end
+end
+function saveShortcuts()
+    local serializedShortcuts = tableToString(trackShortcuts)
+    reaper.SetExtState("TCHelper", "TrackShortcuts", serializedShortcuts, true)
+end
+function loadShortcuts()
+    -- Initialisiere trackShortcuts, falls sie nicht existiert
+    trackShortcuts = trackShortcuts or {}
+
+    local serializedShortcuts = reaper.GetExtState("TCHelper", "TrackShortcuts")
+    if serializedShortcuts and serializedShortcuts ~= "" then
+        trackShortcuts = stringToTable(serializedShortcuts)
+    else
+        -- Standard-Shortcuts definieren, wenn keine vorhanden sind
+        local defaultKeys = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"}
+        local usedTracks = readTrackGUID("used")
+        for i, trackGUID in ipairs(usedTracks) do
+            if defaultKeys[i] then
+                trackShortcuts[trackGUID] = defaultKeys[i]
+            end
+        end
+    end
+end
+function saveGlobalShortcuts()
+    local serializedShortcuts = tableToString(globalShortcuts)
+    reaper.SetExtState("TCHelper", "GlobalShortcuts", serializedShortcuts, true)
+end
+function loadGlobalShortcuts()
+    local serializedShortcuts = reaper.GetExtState("TCHelper", "GlobalShortcuts")
+    if serializedShortcuts and serializedShortcuts ~= "" then
+        globalShortcuts = stringToTable(serializedShortcuts)
+    else
+        globalShortcuts = { playPause = "P", createCue = "C" }
+    end
+end
+function updateInputCueName(targetTrackGUID)
+    -- Verwende den übergebenen TrackGUID oder den aktuell ausgewählten Track
+    local trackGUID = targetTrackGUID or readTrackGUID('selected')
+    if not trackGUID then
+        inputCueName = 'empty'
+        cueNr = 1
+        return
+    end
+
+    -- Hole den Track basierend auf der GUID
+    local track = reaper.BR_GetMediaTrackByGUID(0, trackGUID)
+    if not track then
+        inputCueName = 'empty'
+        cueNr = 1
+        return
+    end
+
+    -- Zähle die Anzahl der Media-Items (Cues) im Ziel-Track
+    local itemCount = reaper.CountTrackMediaItems(track)
+
+    -- Berechne den Cue-Namen basierend auf der Option und der Anzahl der vorhandenen Cues
+    if loadedtracks[trackGUID] and loadedtracks[trackGUID].execoption == 'Cue List' then
+        cueNr = itemCount + 1
+        inputCueName = 'Cue - ' .. cueNr
+    elseif loadedtracks[trackGUID] and (loadedtracks[trackGUID].execoption == 'Flash Button' or loadedtracks[trackGUID].execoption == 'Temp Button') then
+        cueNr = 1
+        inputCueName = 'Cue - 1'
+    else
+        inputCueName = 'empty'
+        cueNr = 1
+    end
+end
+function togglePlayPause()
+    if reaper.GetPlayState() == 0 then
+        reaper.OnPlayButton() -- Startet die Wiedergabe
+    else
+        reaper.OnPauseButton() -- Pausiert die Wiedergabe
     end
 end
 ---SELECTION TOOLS
@@ -1813,16 +1931,15 @@ function connectionWindowMode3()
     end ]]
 end
 function openShortcutWindow()
-    reaper.ImGui_SetNextWindowSize(ctx, 400, 300, reaper.ImGui_Cond_FirstUseEver())
+    -- Sicherstellen, dass trackShortcuts initialisiert ist
+    trackShortcuts = trackShortcuts or {}
+    globalShortcuts = globalShortcuts or { playPause = "P", createCue = "C" }
+
+    reaper.ImGui_SetNextWindowSize(ctx, 400, 500, reaper.ImGui_Cond_FirstUseEver())
     local visible, open = reaper.ImGui_Begin(ctx, "Shortcut Settings", true)
     if visible then
         reaper.ImGui_Text(ctx, "Assign Shortcuts to Create Events in Tracks")
         reaper.ImGui_Separator(ctx)
-
-        -- Shortcuts-Tabelle für jeden Track
-        if not trackShortcuts then
-            trackShortcuts = {}
-        end
 
         -- Unterstützte Tasten
         local supportedKeys = {
@@ -1840,8 +1957,11 @@ function openShortcutWindow()
 
             -- Aktuellen Shortcut anzeigen oder "Assign Key" anzeigen
             local currentShortcut = trackShortcuts[trackGUID] or "Assign Key"
-            if reaper.ImGui_Button(ctx, currentShortcut, 100, 20) then
-                -- Wenn der Shortcut bereits zugewiesen ist, erneut aktivieren
+            if assigningShortcut == trackGUID then
+                currentShortcut = "Press key to assign"
+            end
+
+            if reaper.ImGui_Button(ctx, currentShortcut, 150, 20) then
                 if assigningShortcut == trackGUID then
                     assigningShortcut = nil -- Deaktivieren
                 else
@@ -1854,10 +1974,87 @@ function openShortcutWindow()
                 for _, key in ipairs(supportedKeys) do
                     local imguiKeyFunc = reaper["ImGui_Key_" .. key]
                     if imguiKeyFunc and reaper.ImGui_IsKeyPressed(ctx, imguiKeyFunc()) then
-                        trackShortcuts[trackGUID] = key -- Shortcut speichern
-                        assigningShortcut = nil -- Zuweisung beenden
+                        -- Überprüfe, ob der Shortcut bereits verwendet wird
+                        local isDuplicate = false
+                        local duplicateTrack = nil
+                        for otherTrackGUID, existingKey in pairs(trackShortcuts) do
+                            if existingKey == key and otherTrackGUID ~= trackGUID then
+                                isDuplicate = true
+                                duplicateTrack = otherTrackGUID
+                                break
+                            end
+                        end
+
+                        if not isDuplicate then
+                            trackShortcuts[trackGUID] = key -- Shortcut speichern
+                            assigningShortcut = nil -- Zuweisung beenden
+                            saveShortcuts() -- Shortcuts speichern
+                        else
+                            -- Zeige eine Fehlermeldung an
+                            local duplicateTrackName = loadedtracks[duplicateTrack] and loadedtracks[duplicateTrack].name or "Unknown Track"
+                            reaper.ShowMessageBox(
+                                "Shortcut '" .. key .. "' is already assigned to '" .. duplicateTrackName .. "'. Please choose another key.",
+                                "Duplicate Shortcut",
+                                0
+                            )
+                        end
                         break
                     end
+                end
+            end
+        end
+
+        reaper.ImGui_Separator(ctx)
+        reaper.ImGui_Text(ctx, "Global Shortcuts:")
+        
+        -- Play/Pause Shortcut
+        reaper.ImGui_Text(ctx, "Play/Pause:")
+        reaper.ImGui_SameLine(ctx)
+        local playPauseShortcut = globalShortcuts.playPause or "Assign Key"
+        if assigningShortcut == "playPause" then
+            playPauseShortcut = "Press key to assign"
+        end
+        if reaper.ImGui_Button(ctx, playPauseShortcut, 150, 20) then
+            if assigningShortcut == "playPause" then
+                assigningShortcut = nil
+            else
+                assigningShortcut = "playPause"
+            end
+        end
+        if assigningShortcut == "playPause" then
+            for _, key in ipairs(supportedKeys) do
+                local imguiKeyFunc = reaper["ImGui_Key_" .. key]
+                if imguiKeyFunc and reaper.ImGui_IsKeyPressed(ctx, imguiKeyFunc()) then
+                    globalShortcuts.playPause = key
+                    assigningShortcut = nil
+                    saveGlobalShortcuts()
+                    break
+                end
+            end
+        end
+
+        -- Create Cue Shortcut
+        reaper.ImGui_Text(ctx, "Create Cue in Selected Track:")
+        reaper.ImGui_SameLine(ctx)
+        local createCueShortcut = globalShortcuts.createCue or "Assign Key"
+        if assigningShortcut == "createCue" then
+            createCueShortcut = "Press key to assign"
+        end
+        if reaper.ImGui_Button(ctx, createCueShortcut, 150, 20) then
+            if assigningShortcut == "createCue" then
+                assigningShortcut = nil
+            else
+                assigningShortcut = "createCue"
+            end
+        end
+        if assigningShortcut == "createCue" then
+            for _, key in ipairs(supportedKeys) do
+                local imguiKeyFunc = reaper["ImGui_Key_" .. key]
+                if imguiKeyFunc and reaper.ImGui_IsKeyPressed(ctx, imguiKeyFunc()) then
+                    globalShortcuts.createCue = key
+                    assigningShortcut = nil
+                    saveGlobalShortcuts()
+                    break
                 end
             end
         end
@@ -2125,6 +2322,7 @@ function CueListSetupWindow()
     end
    
 end
+
 ---------------ADD CUE WINDOW---------------------------------------------------------------
 function CueItemWindow()
     local buttonHeight = 50
@@ -2782,6 +2980,14 @@ function addItem(trackGUID)
         return
     end
 
+    -- Berechne die aktuelle Anzahl der Cues im Ziel-Track
+    local targetTrackGUID = trackGUID
+    local targetTrack = reaper.BR_GetMediaTrackByGUID(0, targetTrackGUID)
+    local targetItemCount = reaper.CountTrackMediaItems(targetTrack)
+
+    -- Setze die Cue-Nummer basierend auf der Anzahl der bestehenden Cues
+    cueNr = targetItemCount + 1
+
     media_item = reaper.AddMediaItemToTrack(track)
     local insertTime = -1
     local playState = reaper.GetPlayState()
@@ -2964,6 +3170,16 @@ function moveItem(time)
 end
 function setCursorToItem (itemPos)
     reaper.SetEditCurPos( itemPos, true, true )
+end
+function createCueInSelectedTrack()
+    local selectedTrackGUID = readTrackGUID('selected')
+    if not selectedTrackGUID then
+        reaper.ShowMessageBox("No track selected. Please select a track.", "Error", 0)
+        return
+    end
+
+    -- Erstelle einen neuen Cue im ausgewählten Track
+    addItem(selectedTrackGUID)
 end
 ---------------SEND OSC --------------------------------------------------------------------
 function setOSCcommand()
@@ -3650,6 +3866,7 @@ getTrackContent()
 checkSendedData()
 defineMA3ModeOnFirstStrartup()
 copyReaperTemplate()
+loadShortcuts()
 local xmlContent, code = fetchXML(page)
 if xmlContent then
     
@@ -3667,6 +3884,7 @@ local function loop()
     if addonCheck == true then
         renumberItems()
         --setIPAdress()
+        updateInputCueName()
         checkShortcuts() -- Überprüfe Tastendrücke
         if liveupdatebox == true then --LIVE UPDATE IM LOOP AKTIVIERT
             mergeDataOption()
