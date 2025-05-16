@@ -120,6 +120,8 @@ local BigLogoY = -10
 local assigningShortcut = nil -- Speichert den TrackGUID, für den ein Shortcut zugewiesen wird
 local trackShortcuts = trackShortcuts or {}
 local globalShortcuts = globalShortcuts or { playPause = "P", createCue = "N" }
+local trackShortcutsSafed = reaper.GetExtState('TCHelper', 'trackShortcutsSafed') or false
+local globalShortcutsSafed = reaper.GetExtState('TCHelper', 'globalShortcutsSafed') or false
 --------------------------------------------------------------- 
 dummytrack.id = 'dummyTrackID'
 dummytrack.name = 'dummySeqName'
@@ -835,13 +837,23 @@ function Color.HSV(h, s, v, a)
     local r, g, b = ImGui.ColorConvertHSVtoRGB(h, s, v)
     return ImGui.ColorConvertDouble4ToU32(r, g, b, a or 1.0)
   end
-function getItemCount()
-    local selectedTrack = 'noTrack'
-    selectedTrack = reaper.GetSelectedTrack(0, 0)
-    if selectedTrack == nil then
-        itemCount = 0
+function getItemCount(GUID)
+
+    if GUID == nil then
+        local selectedTrack = 'noTrack'
+        selectedTrack = reaper.GetSelectedTrack(0, 0)
+        if selectedTrack == nil then
+            itemCount = 0
+        else
+            itemCount = reaper.CountTrackMediaItems(selectedTrack)
+        end
     else
-        itemCount = reaper.CountTrackMediaItems(selectedTrack)
+        local trackID = reaper.BR_GetMediaTrackByGUID(0, GUID)
+        if trackID ~= nil then
+            itemCount = reaper.CountTrackMediaItems(trackID)
+        else
+            itemCount = 0
+        end
     end
     return itemCount
 end
@@ -1199,7 +1211,6 @@ function checkShortcuts()
 
     -- Initialisiere globalShortcuts, falls sie nicht existiert
     globalShortcuts = globalShortcuts or { playPause = "P", createCue = "N" }
-
     -- Track-Shortcuts prüfen
     local usedTracks = readTrackGUID("used")
     for _, trackGUID in ipairs(usedTracks) do
@@ -1207,7 +1218,9 @@ function checkShortcuts()
         if assignedKey then
             local imguiKeyFunc = reaper["ImGui_Key_" .. assignedKey]
             if imguiKeyFunc and reaper.ImGui_IsKeyPressed(ctx, imguiKeyFunc()) then
-                addItem(trackGUID) -- Füge ein Cue zum Track hinzu
+                -- Füge ein Cue zum Track hinzu, auch wenn kein Track ausgewählt ist
+                addItem(trackGUID)
+                return
             end
         end
     end
@@ -1231,16 +1244,20 @@ end
 function saveShortcuts()
     local serializedShortcuts = tableToString(trackShortcuts)
     reaper.SetExtState("TCHelper", "TrackShortcuts", serializedShortcuts, true)
+    reaper.SetExtState("TCHelper", "trackShortcutsSafed", "true", true)
 end
 function loadShortcuts()
     -- Initialisiere trackShortcuts, falls sie nicht existiert
     trackShortcuts = trackShortcuts or {}
 
     local serializedShortcuts = reaper.GetExtState("TCHelper", "TrackShortcuts")
-    if serializedShortcuts and serializedShortcuts ~= "" then
+    local userDefined = reaper.GetExtState("TCHelper", "trackShortcutsSafed")
+
+    if serializedShortcuts and serializedShortcuts ~= "" and userDefined == "true" then
+        -- Benutzer hat eigene Shortcuts gespeichert → lade diese
         trackShortcuts = stringToTable(serializedShortcuts)
     else
-        -- Standard-Shortcuts definieren, wenn keine vorhanden sind
+        -- Noch keine eigenen Shortcuts gespeichert → Standard-Shortcuts 1-9 für die ersten 9 used Tracks
         local defaultKeys = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
         local usedTracks = readTrackGUID("used")
         for i, trackGUID in ipairs(usedTracks) do
@@ -1248,31 +1265,34 @@ function loadShortcuts()
                 trackShortcuts[trackGUID] = defaultKeys[i]
             end
         end
-        -- reaper.ShowConsoleMsg("trackShortcuts: " .. tostring(trackShortcuts) .. "\n")
-
-        saveShortcuts() -- Speichere die Standard-Shortcuts
+        -- NICHT speichern! Erst speichern, wenn der User einen Shortcut selbst zuweist
     end
 end
 function initializeTrackShortcuts()
     -- Sicherstellen, dass trackShortcuts initialisiert ist
-    trackShortcuts = trackShortcuts or {}
-
-    -- Hole die GUIDs der "used" Tracks
-    local usedTracks = readTrackGUID("used")
-    local defaultKeys = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
-
-    -- Weisen Sie den ersten 9 "used" Tracks die Shortcuts 1-9 zu
-    for i = 1, math.min(#usedTracks, 9) do
-        local trackGUID = usedTracks[i]
-        trackShortcuts[trackGUID] = defaultKeys[i]
+    --trackShortcuts = trackShortcuts or {}
+    if trackShortcutsSafed == false then
+        -- Hole die GUIDs der "used" Tracks
+        local usedTracks = readTrackGUID("used")
+        local defaultKeys = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
+    
+        -- Weisen Sie den ersten 9 "used" Tracks die Shortcuts 1-9 zu
+        for i = 1, math.min(#usedTracks, 9) do
+            local trackGUID = usedTracks[i]
+            trackShortcuts[trackGUID] = defaultKeys[i]
+            consoleMSG('TrackGUID: '..trackGUID..' assigned to: '..defaultKeys[i])
+        end
+    
+        -- Optional: Shortcuts speichern
+        saveShortcuts()
+        
     end
-
-    -- Optional: Shortcuts speichern
-    saveShortcuts()
 end
 function saveGlobalShortcuts()
     local serializedShortcuts = tableToString(globalShortcuts)
     reaper.SetExtState("TCHelper", "GlobalShortcuts", serializedShortcuts, true)
+    reaper.SetExtState("TCHelper", "globalShortcutsSafed", "true", true)
+
 end
 function loadGlobalShortcuts()
     -- Initialisiere globalShortcuts, falls sie nicht existiert
@@ -1973,7 +1993,7 @@ function openShortcutWindow()
     reaper.ImGui_SetNextWindowSize(ctx, 400, 500, reaper.ImGui_Cond_FirstUseEver())
     local visible, open = reaper.ImGui_Begin(ctx, "Shortcut Settings", true)
     if visible then
-        reaper.ImGui_Text(ctx, "Assign Shortcuts to Create Events in Tracks")
+        reaper.ImGui_Text(ctx, "Assign personal cue shortcuts")
         reaper.ImGui_Separator(ctx)
 
         -- Unterstützte Tasten
@@ -2831,7 +2851,7 @@ function addTrack()
     local newTrackGUID = {}
     local existingNames = {}
     local existingSeqIDs = {}
-
+    local defaultShortcuts = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
     -- Sammle bestehende CueList-Namen
     local usedTracks = readTrackGUID('used')
     for i = 1, #usedTracks do
@@ -2913,8 +2933,18 @@ function addTrack()
     SetupSendedDataTrack(newTrackGUID)
 
     -- Füge den neuen Track zu trackShortcuts hinzu
-    trackShortcuts[newTrackGUID] = nil
-
+    local usedTracks = readTrackGUID('used')
+    for i = 1, #usedTracks, 1 do
+        if i <= 9 then
+            -- consoleMSG('usedTracks['..i..'] = ' .. usedTracks[i])
+            -- consoleMSG('newTrackGUID = ' .. newTrackGUID)
+            if newTrackGUID == usedTracks[i] then
+                trackShortcuts[newTrackGUID] = defaultShortcuts[i]
+                
+            end
+        end
+    end
+    saveShortcuts()
     getTrackContent()
 end
 function deleteTrack()
@@ -2954,7 +2984,12 @@ function deleteTrack()
             if currentSeqID > 1 then
                 reaper.SetExtState('trackconfig', 'seqId', tostring(currentSeqID - 1), true)
             end
+            -- Shortcut aus trackShortcuts entfernen
+            if trackShortcuts and trackShortcuts[trackGUID] then
+                trackShortcuts[trackGUID] = nil
+            end
         end      
+        saveShortcuts()
         reaper.PreventUIRefresh(-1) -- Enable UI updates
         reaper.UpdateArrange() -- Refresh the GUI
     else
@@ -3072,11 +3107,14 @@ function deleteSelection()
 end
 ---------------ADD Item --------------------------------------------------------------------
 function addItem(trackGUID)
+    local definedTrackGUID = trackGUID
     getTrackContent()
-    noTrackError()
+    if definedTrackGUID == nil then
+        noTrackError()
+    end
     local retval
     local selected_trk = reaper.GetSelectedTrack(0, 0)
-    trackGUID = trackGUID or readTrackGUID('selected') -- Verwende den übergebenen Track oder den ausgewählten Track
+    trackGUID = definedTrackGUID or readTrackGUID('selected') -- Verwende den übergebenen Track oder den ausgewählten Track
     local playPos = reaper.GetPlayPosition()
     local cursorpos = reaper.GetCursorPosition()
     local media_item = nil
@@ -3084,9 +3122,11 @@ function addItem(trackGUID)
     local pressNr = cueNr
     local itemcount = getItemCount()
 
-    if not trackGUID or not selected_trk then
-        reaper.ShowMessageBox("No valid track selected or provided.", "Error", 0)
-        return
+    if definedTrackGUID == nil then
+        if not selected_trk then
+            reaper.ShowMessageBox("No valid track selected or provided.", "Error", 0)
+            return
+        end
     end
 
     local track = reaper.BR_GetMediaTrackByGUID(0, trackGUID)
@@ -3111,7 +3151,10 @@ function addItem(trackGUID)
     else
         insertTime = cursorpos
     end
-
+    if definedTrackGUID ~= nil then -- Name definition bei Shortcut benutzung
+        local itemammount = getItemCount(definedTrackGUID)
+        inputCueName = 'Cue - '..itemammount
+    end
     if selectedOption == 'Cue List' then
         itemName = '|' .. inputCueName .. '|\n|' .. loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. cueNr .. '|\n|Fadetime: ' .. fadetime .. '|'
     elseif selectedOption == 'Flash Button' or 'Temp Button' then
@@ -3149,7 +3192,10 @@ function addItem(trackGUID)
     tracks[trackGUID].cue[newCueGUID].fadetime = fadetime
     SetupSendedDataItem(trackGUID, newCueGUID)
     renumberItems()
+    if trackShortcutsSafed == false then
+        initializeTrackShortcuts()
 
+    end
     getTrackContent()
     eventAdded = true
 end
@@ -3287,6 +3333,7 @@ function setCursorToItem (itemPos)
     reaper.SetEditCurPos( itemPos, true, true )
 end
 function createCueInSelectedTrack()
+    consoleMSG('Create Cue in selected track')
     -- Hole die GUID des ausgewählten Tracks
     local selectedTrackGUID = readTrackGUID('selected')
     if not selectedTrackGUID then
