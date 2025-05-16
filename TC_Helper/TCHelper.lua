@@ -76,6 +76,8 @@ local cuesChecked = false
 local seqChecked = false
 local networkChecked = false
 local shortcutsChecked = false
+local textInputActive = false
+local inputCueNameFieldActive = false
 local dummyIPstring = '--Enter console IP--'
 local tracks = {}
 local loadedtracks = {}
@@ -1208,7 +1210,7 @@ end
 function checkShortcuts()
     -- Verhindere das Erstellen von Events, wenn ein Shortcut zugewiesen wird
     if assigningShortcut then return end
-
+    if textInputActive then return end
     -- Initialisiere globalShortcuts, falls sie nicht existiert
     globalShortcuts = globalShortcuts or { playPause = "P", createCue = "N" }
     -- Track-Shortcuts prüfen
@@ -1544,20 +1546,18 @@ local function TCHelper_Window()
                     
                     old_trackcount = #usedTracks
                 end
-            elseif cursor == 1 then
-                local itemcount = getItemCount()
-                local selectedTrack = readTrackGUID('selected')
-                if old_itemcount ~= itemcount or old_track ~= selectedTrack then
-                    if selectedOption == 'Cue List' then
-                        inputCueName = 'Cue - ' .. itemcount + 1
-                        cueNr = itemcount + 1
-                        --reaper.ShowConsoleMsg('\n'..selectedOption)
-                        
-                    else
-                        inputCueName = 'Cue - ' ..1
-                        cueNr = 1
-                        --reaper.ShowConsoleMsg('\n'..selectedOption)
-                        
+                elseif cursor == 1 then
+                    local itemcount = getItemCount()
+                    local selectedTrack = readTrackGUID('selected')
+                    if old_itemcount ~= itemcount or old_track ~= selectedTrack then
+                    if not inputCueNameFieldActive then
+                        if selectedOption == 'Cue List' then
+                            inputCueName = 'Cue - ' .. itemcount + 1
+                            cueNr = itemcount + 1
+                        else
+                            inputCueName = 'Cue - 1'
+                            cueNr = 1
+                        end
                     end
                     old_track = selectedTrack
                     old_itemcount = itemcount
@@ -1767,14 +1767,16 @@ function connectionWindowMode2()
     reaper.ImGui_SetNextItemWidth(ctx, 250)
     
     rv, hostIP = reaper.ImGui_InputText(ctx, 'Host IP', hostIP)
-    
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
+
     ---------------Input Port---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
     rv, userName = reaper.ImGui_InputText(ctx, 'Username', userName)
-    
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     ---------------Input Test Message ---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
     rv, testcmd2 = reaper.ImGui_InputText(ctx, 'Testcommand', testcmd2)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     ---------------BUTTON---------------------------------------------------------------
     ---------------Test Button---------------------------------------------------------------
     
@@ -1877,23 +1879,25 @@ function connectionWindowMode3()
     reaper.ImGui_SetNextItemWidth(ctx, 250)
     
     rv, hostIP = reaper.ImGui_InputText(ctx, 'Host IP', hostIP)
-    
-    
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     
     
     ---------------Input Port---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
     rv, consolePort = reaper.ImGui_InputText(ctx, 'Port', consolePort)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     ---------------Input Praefix---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
     rv, prefix = reaper.ImGui_InputText(ctx, 'Prefix', prefix)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     ---------------Input Profile---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
     rv, datapoolName = reaper.ImGui_InputText(ctx, 'DataPool', datapoolName)
-    
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     ---------------Input Test Message ---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
     rv, testcmd3 = reaper.ImGui_InputText(ctx, 'Testcommand', testcmd3)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     ---------------BUTTON---------------------------------------------------------------
     ---------------Test Button---------------------------------------------------------------
     rv,liveupdatebox = ImGui.Checkbox(ctx, 'Live update to console', liveupdatebox)
@@ -2236,15 +2240,19 @@ function ToolsWindow()
     
     reaper.ImGui_SetNextItemWidth(ctx, inputwidth)
     rv1, inputHH = reaper.ImGui_InputTextWithHint(ctx, ' :', 'hh', inputHH)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     reaper.ImGui_SameLine(ctx)
     reaper.ImGui_SetNextItemWidth(ctx, inputwidth)
     rv2, inputMM = reaper.ImGui_InputTextWithHint(ctx, ':', 'mm', inputMM)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     reaper.ImGui_SameLine(ctx)
     reaper.ImGui_SetNextItemWidth(ctx, inputwidth)
-    rv3, inputSS = reaper.ImGui_InputTextWithHint(ctx, ': ', 'ss', inputSS)    
+    rv3, inputSS = reaper.ImGui_InputTextWithHint(ctx, ': ', 'ss', inputSS)  
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     reaper.ImGui_SameLine(ctx)
     reaper.ImGui_SetNextItemWidth(ctx, inputwidth)
     rv4, inputFF = reaper.ImGui_InputTextWithHint(ctx, 'New items time', 'ff', inputFF)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
 
     reaper.ImGui_SetCursorPos(ctx, timetextX ,timetextY + 80)
     if reaper.ImGui_Button(ctx, 'Set item to time', 200, 50) then
@@ -2357,12 +2365,14 @@ function CueListSetupWindow()
     reaper.ImGui_SetCursorPos(ctx, 9, 80)
     reaper.ImGui_SetNextItemWidth(ctx, 300)
     rv, cueListName = reaper.ImGui_InputText(ctx, 'Sequence Name', cueListName)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     cueListName = replaceSpecialCharacters(cueListName)
     ---------------Input Sequence ID---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 500, 80)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     seqID = tonumber(reaper.GetExtState('trackconfig', 'seqId')) or 1
     local rv, newSeqID = reaper.ImGui_InputText(ctx, 'Sequence ID', tostring(seqID))
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
 
     -- Wenn der Benutzer eine neue Zahl einträgt, aktualisiere die Basis
     if rv and tonumber(newSeqID) then
@@ -2372,16 +2382,19 @@ function CueListSetupWindow()
     reaper.ImGui_SetCursorPos(ctx, 500, 110)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, tcID = reaper.ImGui_InputText(ctx, 'Timecode ID', tcID)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     if MAmode == 'Mode 2' then
         ---------------BUTTON---------------------------------------------------------------
         ---------------Input Page Number---------------------------------------------------------------
         reaper.ImGui_SetCursorPos(ctx, 500, 140)
         reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
         rv, pageID = reaper.ImGui_InputText(ctx, 'Page Number', pageID)
+        textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
         ---------------Input Executor ID ---------------------------------------------------------------
         reaper.ImGui_SetCursorPos(ctx, 500,170)
         reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
         rv, execID = reaper.ImGui_InputText(ctx, 'Executor ID', execID)
+        textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
         
     end
     reaper.ImGui_SetCursorPos(ctx, 500, buttonY)
@@ -2475,10 +2488,15 @@ function CueItemWindow()
     ---------------Input Cuelist Name---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 205)
     rv, inputCueName = reaper.ImGui_InputText(ctx, 'Cuename', inputCueName)
-    inputCueName = replaceSpecialCharacters(inputCueName)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
+    inputCueNameFieldActive = reaper.ImGui_IsItemActive(ctx)
+    if rv then
+        inputCueName = replaceSpecialCharacters(inputCueName)
+    end
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, fadetime = reaper.ImGui_InputText(ctx, 'Fadetime ', fadetime)
-    
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
+
     
     ---------------Add Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, xButtonsStart, toptextYoffset * 4.5)
@@ -2563,8 +2581,10 @@ function TempItemWindow()
     ---------------Input Cuelist Name---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, fadetime = reaper.ImGui_InputText(ctx, 'Fadetime ', fadetime)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, holdtime = reaper.ImGui_InputText(ctx, 'Holdtime in sec', holdtime)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     
     
@@ -2672,6 +2692,7 @@ function renameTrackWindow()
 
             -- Eingabefeld für den neuen Namen
             local rv, newName = reaper.ImGui_InputText(ctx, 'Seq ' .. seqIDs[i], newSeqNames[i])
+            textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
 
             -- Speichere den neuen Namen in der Liste, wenn er geändert wurde
             if rv then
@@ -2759,10 +2780,12 @@ function renameCuesWindow()
             reaper.ImGui_SetNextItemWidth(ctx, textWidth)
             local rv1
             rv1, NewCueNames[i] = reaper.ImGui_InputText(ctx, 'Cue-' .. cueID, NewCueNames[i])
+            textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
             reaper.ImGui_SameLine(ctx)
             reaper.ImGui_SetNextItemWidth(ctx, fadeWidth)
             local rv2
             rv2, NewFadeTimes[i] = reaper.ImGui_InputText(ctx, 'Fade-' .. cueID, NewFadeTimes[i])
+            textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
             reaper.ImGui_SameLine(ctx)
 
             if reaper.ImGui_Button(ctx, 'jump ' .. i, buttonWidth, buttonHeight) then
@@ -3152,10 +3175,17 @@ function addItem(trackGUID)
         insertTime = cursorpos
     end
     if definedTrackGUID ~= nil then -- Name definition bei Shortcut benutzung
+        if loadedtracks[definedTrackGUID].execoption == 'Cue List' then
+            selectedOption = 'Cue List'
+        elseif loadedtracks[definedTrackGUID].execoption == 'Flash Button' then
+            selectedOption = 'Flash Button'
+        elseif loadedtracks[definedTrackGUID].execoption == 'Temp Button' then
+            selectedOption = 'Temp Button'
+        end
         local itemammount = getItemCount(definedTrackGUID)
         inputCueName = 'Cue - '..itemammount
     end
-    if selectedOption == 'Cue List' then
+    if selectedOption == 'Cue List' then 
         itemName = '|' .. inputCueName .. '|\n|' .. loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. cueNr .. '|\n|Fadetime: ' .. fadetime .. '|'
     elseif selectedOption == 'Flash Button' or 'Temp Button' then
         itemName = '|' .. inputCueName .. '|\n|' .. loadedtracks[trackGUID].execoption .. '|\n|Press: ' .. pressNr .. '|\n|Fadetime: ' .. fadetime .. '|\n|Hold: ' .. holdtime .. '|'
@@ -3333,7 +3363,6 @@ function setCursorToItem (itemPos)
     reaper.SetEditCurPos( itemPos, true, true )
 end
 function createCueInSelectedTrack()
-    consoleMSG('Create Cue in selected track')
     -- Hole die GUID des ausgewählten Tracks
     local selectedTrackGUID = readTrackGUID('selected')
     if not selectedTrackGUID then
@@ -4049,7 +4078,9 @@ local function loop()
     if addonCheck == true then
         renumberItems()
         --setIPAdress()
-        updateInputCueName()
+        --updateInputCueName()
+            
+            
         checkShortcuts() -- Überprüfe Tastendrücke
         if liveupdatebox == true then --LIVE UPDATE IM LOOP AKTIVIERT
             mergeDataOption()
@@ -4161,42 +4192,42 @@ local function loop()
 
 
 
-reaper.ImGui_SetNextWindowSize(ctx, 200, 80, reaper.ImGui_Cond_FirstUseEver())
----------- DOCK
-if not mainDocked then
-    --local dock_id = reaper.ImGui_GetID(ctx, "bottom_left")
-    reaper.ImGui_SetNextWindowDockID(ctx, mainDockID, reaper.ImGui_Cond_FirstUseEver())
-    mainDocked = true
-end
-local visible, open = reaper.ImGui_Begin(ctx, script_title, true, flags)
-if visible then
-    TCHelper_Window()
-    mainDockID = reaper.ImGui_GetWindowDockID(ctx)
-    reaper.SetExtState("TCHelper", "DockID", tostring(mainDockID), true)
-    reaper.ImGui_End(ctx)
-end
-if firstopened == false then
-    openCuesWindow()
-    openTrackWindow()
-    firstopened = true
-end
-if cuesChecked == true then
-    openCuesWindow()
-end
-if seqChecked == true then
-    openTrackWindow()
-end
-if networkChecked == true then
-    openConnectionWindow()
-end
-if shortcutsChecked == true then
-    shortcutsChecked = openShortcutWindow()
-end
-ShowAboutWindow()
-ShowNewVersionUpdateWindow(newVersion)
-if manualCheck == true then
-    ShowOldVersionUpdateWindow(version)
-end
+        reaper.ImGui_SetNextWindowSize(ctx, 200, 80, reaper.ImGui_Cond_FirstUseEver())
+        ---------- DOCK
+        if not mainDocked then
+            --local dock_id = reaper.ImGui_GetID(ctx, "bottom_left")
+            reaper.ImGui_SetNextWindowDockID(ctx, mainDockID, reaper.ImGui_Cond_FirstUseEver())
+            mainDocked = true
+        end
+        local visible, open = reaper.ImGui_Begin(ctx, script_title, true, flags)
+        if visible then
+            TCHelper_Window()
+            mainDockID = reaper.ImGui_GetWindowDockID(ctx)
+            reaper.SetExtState("TCHelper", "DockID", tostring(mainDockID), true)
+            reaper.ImGui_End(ctx)
+        end
+        if firstopened == false then
+            openCuesWindow()
+            openTrackWindow()
+            firstopened = true
+        end
+        if cuesChecked == true then
+            openCuesWindow()
+        end
+        if seqChecked == true then
+            openTrackWindow()
+        end
+        if networkChecked == true then
+            openConnectionWindow()
+        end
+        if shortcutsChecked == true then
+            shortcutsChecked = openShortcutWindow()
+        end
+        ShowAboutWindow()
+        ShowNewVersionUpdateWindow(newVersion)
+        if manualCheck == true then
+            ShowOldVersionUpdateWindow(version)
+        end
         reaper.ImGui_PopStyleColor(ctx, 57)
         reaper.ImGui_PopStyleVar(ctx, 32)
         reaper.ImGui_PopFont(ctx)
@@ -4204,6 +4235,7 @@ end
             reaper.defer(loop)
         end
     end
+
 end
 
 reaper.defer(loop)
