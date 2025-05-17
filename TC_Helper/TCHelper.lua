@@ -1,6 +1,8 @@
 -- @description TCHelper
--- @version 3.3.6
+-- @version 3.4.0
 -- @author mittim88
+-- @changelog
+--   v3.4.0 - Added: Shortcut functionality (Settings -> Shortcuts)
 -- @provides
 --   /TC_Helper/*.lua
 --   /TC_Helper/data/pdf/*.pdf
@@ -10,7 +12,7 @@
 --   /TC_Helper/data/projectTemplate/*.RPP
 
 
-local version = '3.3.6'
+local version = '3.4.0'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
 local mode2BETA = false
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
@@ -1596,6 +1598,37 @@ local function TCHelper_Window()
     end
 end
 local rv
+local function ShowFocusHint()
+    -- Prüfe, ob das ImGui-Fenster im Fokus ist
+    local isFocused = reaper.ImGui_IsWindowFocused(ctx)
+    local hintText, color
+
+    if isFocused then
+        hintText = "Shortcuts are ACTIVATED"
+        color = 0x1DB287FF -- grün
+    else
+        hintText = "Click in TCHelper Window to activate Shortcuts!!!!!! Shortcuts are DISABLED"
+        color = 0xFF6E59FF -- rot
+    end
+
+    -- Positioniere den Hinweis immer am unteren Rand des Fensters
+    local windowHeight = reaper.ImGui_GetWindowHeight(ctx)
+    local hintHeight = reaper.ImGui_GetTextLineHeight(ctx) + 30 -- Höhe des Textes + 10px Abstand
+    local yPos = windowHeight - hintHeight - 0 -- 5px Abstand zum unteren Rand
+
+    reaper.ImGui_SetCursorPos(ctx, 0, yPos)
+    reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ChildBg(), 0x22222288)
+    if reaper.ImGui_BeginChild(ctx, "FocusHint", 0, hintHeight, true, reaper.ImGui_WindowFlags_NoInputs()) then
+        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Text(), color)
+        local windowWidth = reaper.ImGui_GetWindowWidth(ctx)
+        local textWidth = reaper.ImGui_CalcTextSize(ctx, hintText)
+        reaper.ImGui_SetCursorPosX(ctx, (windowWidth - textWidth) / 2)
+        reaper.ImGui_Text(ctx, hintText)
+        reaper.ImGui_PopStyleColor(ctx)
+        reaper.ImGui_EndChild(ctx)
+    end
+    reaper.ImGui_PopStyleColor(ctx)
+end
 function ShowAboutWindow()
     local rv, script_path = isInstalledViaReapack()
     local logoImage_path = script_path..dataFolder..logoFolder..logoBigName
@@ -2335,6 +2368,7 @@ function ToolsWindow()
     end 
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
+    ShowFocusHint()
 end
 function CueListSetupWindow()
     local buttonX = 9
@@ -2428,7 +2462,7 @@ function CueListSetupWindow()
     end
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
-    
+    ShowFocusHint()
     
     
     
@@ -2556,6 +2590,7 @@ function CueItemWindow()
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
     reaper.ImGui_SetCursorPos(ctx, 610, toptextYoffset + 55)
+    ShowFocusHint()
 end
 function TempItemWindow()
     local buttonHeight = 50
@@ -2648,6 +2683,7 @@ function TempItemWindow()
     end 
     ImGui.PopStyleColor(ctx, 3)
     ImGui.PopID(ctx)
+    ShowFocusHint()
 end
 -----------------RENAMEING DATA WINDOWS-------------------------------------------------------------
 function renameTrackWindow()
@@ -3306,6 +3342,15 @@ function renumberItems()
                                 sendTelnet(cmd)
                             elseif MAmode == 'Mode 3' then
                                 sendOSC(hostIP, consolePort, cmd)
+                            end
+                            if sendedData[selTrack] == nil then
+                                SetupSendedDataTrack(selTrack)
+                            end
+                            if sendedData[selTrack].cue == nil then
+                                sendedData[selTrack].cue = {}
+                            end
+                            if sendedData[selTrack].cue[itemGUID[i]] == nil then
+                                SetupSendedDataItem(selTrack, itemGUID[i])
                             end
                             sendedData[selTrack].cue[itemGUID[i]].TCid = 'empty'
                             sendedData[selTrack].cue[itemGUID[i]].TCname = 'empty'
