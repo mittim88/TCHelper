@@ -1,8 +1,9 @@
 -- @description TCHelper
--- @version 3.4.0
+-- @version 3.4.1
 -- @author mittim88
 -- @changelog
 --   v3.4.0 - Added: Shortcut functionality (Settings -> Shortcuts)
+--   v3.4.1 - Fixed: -startup crash because of shortcuts), naming of sequences
 -- @provides
 --   /TC_Helper/*.lua
 --   /TC_Helper/data/pdf/*.pdf
@@ -12,7 +13,7 @@
 --   /TC_Helper/data/projectTemplate/*.RPP
 
 
-local version = '3.4.0'
+local version = '3.4.1'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
 local mode2BETA = false
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
@@ -959,7 +960,7 @@ end
 function ensureUniqueSeqName(seqName, existingNames)
     -- Falls der Name bereits existiert, füge eine Nummer an
     local uniqueName = seqName
-    local counter = 1
+    local counter = 2
     while existingNames[uniqueName] do
         uniqueName = seqName .. " -" .. counter
         counter = counter + 1
@@ -1210,6 +1211,7 @@ function copyFile(source, destination)
     -- end
 end
 function checkShortcuts()
+    trackShortcuts = trackShortcuts or {}
     -- Verhindere das Erstellen von Events, wenn ein Shortcut zugewiesen wird
     if assigningShortcut then return end
     if textInputActive then return end
@@ -1246,6 +1248,7 @@ function checkShortcuts()
     end
 end
 function saveShortcuts()
+    trackShortcuts = trackShortcuts or {}
     local serializedShortcuts = tableToString(trackShortcuts)
     reaper.SetExtState("TCHelper", "TrackShortcuts", serializedShortcuts, true)
     reaper.SetExtState("TCHelper", "trackShortcutsSafed", "true", true)
@@ -1273,9 +1276,10 @@ function loadShortcuts()
     end
 end
 function initializeTrackShortcuts()
+    trackShortcuts = trackShortcuts or {}
     -- Sicherstellen, dass trackShortcuts initialisiert ist
     --trackShortcuts = trackShortcuts or {}
-    if trackShortcutsSafed == false then
+    if trackShortcutsSafed == false or trackShortcutsSafed == 'false' then
         -- Hole die GUIDs der "used" Tracks
         local usedTracks = readTrackGUID("used")
         local defaultKeys = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
@@ -3075,8 +3079,15 @@ function renameTrack(newSeqNames)
             local oldButtonName = loadedtracks[trackGUIDs[i]].execoption
             local oldTCID = loadedtracks[trackGUIDs[i]].tcID
 
+            -- ***LÖSUNG: Eigenen Namen vorübergehend aus existingNames entfernen***
+            local oldName = loadedtracks[trackGUIDs[i]].name
+            existingNames[oldName] = nil
+
             -- Überprüfe und stelle sicher, dass der neue Name eindeutig ist
             local uniqueName = ensureUniqueSeqName(newSeqNames[i], existingNames)
+
+            -- Nach dem Check neuen Namen wieder eintragen
+            existingNames[uniqueName] = true
 
             -- Generiere den neuen Namen basierend auf den bestehenden Daten
             local newName = ''
