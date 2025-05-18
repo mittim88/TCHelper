@@ -1,9 +1,10 @@
 -- @description TCHelper
--- @version 3.4.1
+-- @version 3.4.2
 -- @author mittim88
 -- @changelog
 --   v3.4.0 - Added: Shortcut functionality (Settings -> Shortcuts)
 --   v3.4.1 - Fixed: -startup crash because of shortcuts), naming of sequences
+--   v3.4.2 - Fixed: -naming issue of temp/flash cues (all temp/flash cues are now named the same)
 -- @provides
 --   /TC_Helper/*.lua
 --   /TC_Helper/data/pdf/*.pdf
@@ -13,7 +14,7 @@
 --   /TC_Helper/data/projectTemplate/*.RPP
 
 
-local version = '3.4.1'
+local version = '3.4.2'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
 local mode2BETA = false
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
@@ -2746,6 +2747,8 @@ function renameTrackWindow()
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', buttonWidth, buttonHeight) then
         renameTrack(newSeqNames) -- Schreibe die neuen Namen in die Tracks
+        newSeqNames = getSeqNames()
+
     end
 
     -- Dummy-Komponente hinzufügen, um die Fenstergrenzen zu validieren
@@ -2843,7 +2846,8 @@ function renameCuesWindow()
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', buttonWidth, 80) then
         renameItems()
-        
+        NewCueNames = getCueNames()
+        NewFadeTimes = getFadeTimes()
     end
 
     -- Dummy-Komponente hinzufügen, um die Fenstergrenzen zu validieren
@@ -3289,11 +3293,29 @@ function renameItems()
         cueGUIDs = readItemGUID(trackGUID)
     end
     local cueFade = {}
+
+    -- Prüfe, ob der Track ein Temp oder Flash Button ist
+    local isTempOrFlash = loadedtracks[trackGUID] and (
+        loadedtracks[trackGUID].execoption == "Temp Button" or
+        loadedtracks[trackGUID].execoption == "Flash Button"
+    )
+
+    -- Wenn Temp/Flash: hole den neuen Namen aus dem ersten Feld und setze ihn für alle Cues
+    local newNameForAll = nil
+    if isTempOrFlash and NewCueNames and #NewCueNames > 0 then
+        newNameForAll = replaceSpecialCharacters(NewCueNames[1])
+    end
+
     for i = 1, cueAmmount, 1 do
         mediaItem[i] = reaper.BR_GetMediaItemByGUID(0, cueGUIDs[i])
     end
     for i = 1, cueAmmount, 1 do
-        local inputName = replaceSpecialCharacters(NewCueNames[i])
+        local inputName
+        if isTempOrFlash and newNameForAll then
+            inputName = newNameForAll
+        else
+            inputName = replaceSpecialCharacters(NewCueNames[i])
+        end
         local inputFade = NewFadeTimes[i]
         itemName = '|' ..inputName..'|\n|' ..loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. i .. '|\n|Fadetime: ' ..inputFade .. '|'
         reaper.GetSetMediaItemInfo_String(mediaItem[i], "P_NOTES", itemName, true)
@@ -3534,7 +3556,7 @@ function setOSCcommand()
             for j = 1, cueAmmount[i], 1 do
                 --local releaseBtnTime = loadedtracks[usedTrackGUID[i]].cue[cueGUID[i][j]].itemEnd - loadedtracks[usedTrackGUID[i]].cue[cueGUID[i][j]].fadetime
                 local releaseBtnTime = loadedtracks[usedTrackGUID[i]].cue[cueGUID[i][j]].itemEnd
-                OscCommands.cue.storeCueCmd[i][j] =              'Store Seq ' ..loadedtracks[usedTrackGUID[i]].seqID.. ' Cue 1  /o'
+                OscCommands.cue.storeCueCmd[i][j] =              'Store Seq ' ..loadedtracks[usedTrackGUID[i]].seqID.. ' Cue 1  /m'
                 OscCommands.cue.labelCueCmd[i][j] =              'Label Seq ' ..loadedtracks[usedTrackGUID[i]].seqID ..' Cue 1 "'           ..loadedtracks[usedTrackGUID[i]].cue[cueGUID[i][j]].name .. '"/o'
                 OscCommands.cue.fadeCueCmd[i][j] =               'Set Seq '   ..loadedtracks[usedTrackGUID[i]].seqID ..' Cue 1 CueFade '    ..loadedtracks[usedTrackGUID[i]].cue[cueGUID[i][j]].fadetime
                 OscCommands.timecode.tcStoreCueCmd[i][j] =       'Store TC '  ..tcID ..'.1.'.. i .. '.1.1.'   ..oncount
@@ -3711,7 +3733,19 @@ function checkSendedData()
                     checkData.item[itemGuid[j]].token = false
                    --reaper.ShowConsoleMsg('\n TC TOKEN: FALSE')
                 end
-
+                -- SPEZIALFALL: Temp/Flash Button → Name des ersten Cues als Track-Flag
+                if j == 1 and (
+                    loadedtracks[usedTracks[i]].execoption == "Temp Button" or
+                    loadedtracks[usedTracks[i]].execoption == "Flash Button"
+                ) then
+                    -- Prüfe, ob sich der Name des ersten Cues geändert hat
+                    if sendedData[usedTracks[i]].cue[itemGuid[j]].name ~= loadedtracks[usedTracks[i]].cue[itemGuid[j]].name then
+                        -- Setze ein Flag am Track, damit sendToConsole das Label sendet
+                        checkData.track[usedTracks[i]].tempCueNameChanged = true
+                    else
+                        checkData.track[usedTracks[i]].tempCueNameChanged = false
+                    end
+                end
             else
                 SetupSendedDataItem(usedTracks[i],itemGuid[j])
             end 
@@ -3765,10 +3799,13 @@ function sendToConsole(hostIP, consolePort, OscCommands)
                                 sendedData[usedTracks[i]].cue[itemGuid[j]].fadetime = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].fadetime)
                             end                                                                                      
                         else    ----TEMP&FLASH SEQUENZEN
-                            if sendedData[usedTracks[i]].tempCueSended == false then
-                                sendOSC(hostIP, consolePort, OscCommands.cue.storeCueCmd[i][1])
-                                sendedData[usedTracks[i]].tempCueSended = true
+                            if sendedCheck.track[usedTracks[i]].tempCueNameChanged == true then
+                                sendOSC(hostIP, consolePort, OscCommands.cue.labelCueCmd[i][1])
+                                -- Update sendedData, damit die Änderung erkannt wird
+                                local firstItemGuid = itemGuid[1]
+                                sendedData[usedTracks[i]].cue[firstItemGuid].name = copy3(loadedtracks[usedTracks[i]].cue[firstItemGuid].name)
                             end
+                    
                             if sendedData[usedTracks[i]].tempNameSended == false then 
                                 sendOSC(hostIP, consolePort, OscCommands.cue.labelCueCmd[i][1])
                                 sendedData[usedTracks[i]].tempNameSended = true
