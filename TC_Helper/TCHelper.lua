@@ -1,10 +1,11 @@
 -- @description TCHelper
--- @version 3.4.2
+-- @version 3.4.3
 -- @author mittim88
 -- @changelog
 --   v3.4.0 - Added: Shortcut functionality (Settings -> Shortcuts)
 --   v3.4.1 - Fixed: -startup crash because of shortcuts), naming of sequences
 --   v3.4.2 - Fixed: -naming issue of temp/flash cues (all temp/flash cues are now named the same)
+--   v3.4.3 - Updated: -changed naming behavior of temp/flash cuename window (only the first cue is named)
 -- @provides
 --   /TC_Helper/*.lua
 --   /TC_Helper/data/pdf/*.pdf
@@ -14,7 +15,7 @@
 --   /TC_Helper/data/projectTemplate/*.RPP
 
 
-local version = '3.4.2'
+local version = '3.4.3'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
 local mode2BETA = false
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
@@ -101,7 +102,8 @@ local mainDockID = tonumber(reaper.GetExtState("TCHelper", "MainDockID")) or 0
 local cueDockID = tonumber(reaper.GetExtState("TCHelper", "CueDockID")) or 0
 local trackDockID = tonumber(reaper.GetExtState("TCHelper", "TrackDockID")) or 0
 local selectedTrackOption = 'selected Track' -- Standardmäßig aktivierte Option
-
+local pendingLiveUpdate = false
+local lastLiveUpdateState = liveupdatebox
 local manualCheck = false
 local aboutWindowOpen = false
 local openNewVersionWindow = false
@@ -2806,38 +2808,60 @@ function renameCuesWindow()
     end
     seqName = loadedtracks[tcTrack].name or "No track"
     reaper.ImGui_Text(ctx, 'Selected track: ' .. seqName)
+
+    -- Prüfe, ob Temp/Flash
+    local isTempOrFlash = loadedtracks[tcTrack] and (
+        loadedtracks[tcTrack].execoption == "Temp Button" or
+        loadedtracks[tcTrack].execoption == "Flash Button"
+    )
+
     if reaper.ImGui_BeginChild(ctx, 'left pane', paneWidth, windowHeight - 50, true) then
         reaper.ImGui_SetCursorPos(ctx, 10, 10)
         reaper.ImGui_Text(ctx, 'Cuenames')
-        reaper.ImGui_SameLine(ctx)
-        reaper.ImGui_SetCursorPos(ctx, paneWidth - fadeWidth - buttonWidth - 20, 10)
+        reaper.ImGui_SetCursorPos(ctx, paneWidth - fadeWidth - buttonWidth - 90, 10)
         reaper.ImGui_Text(ctx, 'Fadetimes')
         local j = 0
+        local lineHeight = reaper.ImGui_GetTextLineHeight(ctx) + 8
         for i = 1, #NewCueNames, 1 do
-            local cueID
-            if i < 10 then
-                cueID = string.format('%02d', i)
-            else
-                cueID = i
-            end
-            reaper.ImGui_SetNextItemWidth(ctx, textWidth)
-            local rv1
-            rv1, NewCueNames[i] = reaper.ImGui_InputText(ctx, 'Cue-' .. cueID, NewCueNames[i])
-            textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
-            reaper.ImGui_SameLine(ctx)
-            reaper.ImGui_SetNextItemWidth(ctx, fadeWidth)
-            local rv2
-            rv2, NewFadeTimes[i] = reaper.ImGui_InputText(ctx, 'Fade-' .. cueID, NewFadeTimes[i])
-            textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
-            reaper.ImGui_SameLine(ctx)
+            local cueID = (i < 10) and string.format('%02d', i) or i
+            local startY = 30 + (i - 1) * lineHeight
 
+            -- CUE NAME
+            reaper.ImGui_SetCursorPos(ctx, 10, startY)
+            if isTempOrFlash and i > 1 then
+                reaper.ImGui_BeginDisabled(ctx)
+                reaper.ImGui_SetNextItemWidth(ctx, textWidth)
+                reaper.ImGui_InputText(ctx, 'Cue-' .. cueID, NewCueNames[i] or "", reaper.ImGui_InputTextFlags_ReadOnly())
+                reaper.ImGui_EndDisabled(ctx)
+            else
+                reaper.ImGui_SetNextItemWidth(ctx, textWidth)
+                local rv1
+                rv1, NewCueNames[i] = reaper.ImGui_InputText(ctx, 'Cue-' .. cueID, NewCueNames[i])
+            end
+
+            -- FADETIME
+            local fadeX = paneWidth - fadeWidth - buttonWidth - 90
+            reaper.ImGui_SetCursorPos(ctx, fadeX, startY)
+            if isTempOrFlash and i > 1 then
+                reaper.ImGui_BeginDisabled(ctx)
+                reaper.ImGui_SetNextItemWidth(ctx, fadeWidth)
+                reaper.ImGui_InputText(ctx, 'Fade-' .. cueID, NewFadeTimes[i] or "", reaper.ImGui_InputTextFlags_ReadOnly())
+                reaper.ImGui_EndDisabled(ctx)
+            else
+                reaper.ImGui_SetNextItemWidth(ctx, fadeWidth)
+                local rv2
+                rv2, NewFadeTimes[i] = reaper.ImGui_InputText(ctx, 'Fade-' .. cueID, NewFadeTimes[i])
+            end
+
+            -- JUMP BUTTON
+            local jumpX = paneWidth - buttonWidth - 10
+            reaper.ImGui_SetCursorPos(ctx, jumpX, startY)
             if reaper.ImGui_Button(ctx, 'jump ' .. i, buttonWidth, buttonHeight) then
                 local trackItem = reaper.BR_GetMediaTrackByGUID(0, tcTrack)
                 local item = reaper.GetTrackMediaItem(trackItem, j)
                 local rv, itemGUID = reaper.GetSetMediaItemInfo_String(item, "GUID", "", false)
                 local newCursorPos = loadedtracks[tcTrack].cue[itemGUID].itemStart
                 setCursorToItem(newCursorPos)
-                --reaper.ShowConsoleMsg('\n Select: ' .. itemGUID)
             end
             j = j + 1
         end
@@ -3013,6 +3037,7 @@ function addTrack()
     end
     saveShortcuts()
     getTrackContent()
+    pendingLiveUpdate = true
 end
 function deleteTrack()
     --reaper.ShowConsoleMsg('\nDELETE TRACK START')
@@ -3063,6 +3088,7 @@ function deleteTrack()
         reaper.ShowMessageBox("No tracks selected.", "Error", 0)
     end
     getTrackContent()
+    pendingLiveUpdate = true
     --reaper.ShowConsoleMsg('\nDELETE TRACK END')
 end
 function renameTrack(newSeqNames)
@@ -3116,6 +3142,7 @@ function renameTrack(newSeqNames)
 
     getTrackContent()
     trackRenamed = true
+    pendingLiveUpdate = true
 end
 ---------------Delete Selection-------------------------------------------------------------------
 function deleteSelection()
@@ -3177,6 +3204,7 @@ function deleteSelection()
     NewCueNames = getCueNames()
     NewFadeTimes = getFadeTimes()
     getTrackContent()
+    pendingLiveUpdate = true
     --reaper.ShowConsoleMsg('\n--DELETE ENDED--')
 end
 ---------------ADD Item --------------------------------------------------------------------
@@ -3279,6 +3307,7 @@ function addItem(trackGUID)
     end
     getTrackContent()
     eventAdded = true
+    pendingLiveUpdate = true
 end
 function renameItems()
     getTrackContent()
@@ -3323,6 +3352,7 @@ function renameItems()
     checkDuplicateCueNames()
     reaper.ThemeLayout_RefreshAll()
     getTrackContent()
+    pendingLiveUpdate = true
 end
 function renumberItems()
     local selTrack = readTrackGUID('selected')
@@ -3397,6 +3427,7 @@ function renumberItems()
             end
         end
     end
+    pendingLiveUpdate = true
 end
 function moveItem(time)
     --reaper.ShowConsoleMsg('\nMOVE STARTED')
@@ -3435,7 +3466,7 @@ function moveItem(time)
     end
    
 
-        
+   pendingLiveUpdate = true      
 end
 function setCursorToItem (itemPos)
     reaper.SetEditCurPos( itemPos, true, true )
@@ -4172,12 +4203,23 @@ local function loop()
         renumberItems()
         --setIPAdress()
         --updateInputCueName()
-            
-            
+        
         checkShortcuts() -- Überprüfe Tastendrücke
-        if liveupdatebox == true then --LIVE UPDATE IM LOOP AKTIVIERT
+
+        -- Live Update: Änderungen nachholen, wenn aktiviert wird
+        if liveupdatebox and not lastLiveUpdateState and pendingLiveUpdate then
             mergeDataOption()
+            pendingLiveUpdate = false
         end
+
+        -- Normales Live Update Verhalten
+        if liveupdatebox == true then
+            mergeDataOption()
+            pendingLiveUpdate = false
+        end
+
+        lastLiveUpdateState = liveupdatebox
+
         --reaper.ShowConsoleMsg('\n'..inputCueName)
         --getTrackContent()
         snapCursorToSelection()
@@ -4282,9 +4324,6 @@ local function loop()
         reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_SeparatorTextPadding(),        20, 3)
         -------------------------------------------------------------------------------------------------
 
-
-
-
         reaper.ImGui_SetNextWindowSize(ctx, 200, 80, reaper.ImGui_Cond_FirstUseEver())
         ---------- DOCK
         if not mainDocked then
@@ -4328,7 +4367,6 @@ local function loop()
             reaper.defer(loop)
         end
     end
-
 end
 
 reaper.defer(loop)
