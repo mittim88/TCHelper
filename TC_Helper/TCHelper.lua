@@ -3329,10 +3329,14 @@ function renameItems()
         loadedtracks[trackGUID].execoption == "Flash Button"
     )
 
-    -- Wenn Temp/Flash: hole den neuen Namen aus dem ersten Feld und setze ihn für alle Cues
+    -- Wenn Temp/Flash: hole den neuen Namen und die neue Fadezeit aus dem ersten Feld und setze sie für alle Cues
     local newNameForAll = nil
+    local newFadeForAll = nil
     if isTempOrFlash and NewCueNames and #NewCueNames > 0 then
         newNameForAll = replaceSpecialCharacters(NewCueNames[1])
+    end
+    if isTempOrFlash and NewFadeTimes and #NewFadeTimes > 0 then
+        newFadeForAll = NewFadeTimes[1]
     end
 
     for i = 1, cueAmmount, 1 do
@@ -3340,12 +3344,17 @@ function renameItems()
     end
     for i = 1, cueAmmount, 1 do
         local inputName
+        local inputFade
         if isTempOrFlash and newNameForAll then
             inputName = newNameForAll
         else
             inputName = replaceSpecialCharacters(NewCueNames[i])
         end
-        local inputFade = NewFadeTimes[i]
+        if isTempOrFlash and newFadeForAll then
+            inputFade = newFadeForAll
+        else
+            inputFade = NewFadeTimes[i]
+        end
         itemName = '|' ..inputName..'|\n|' ..loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. i .. '|\n|Fadetime: ' ..inputFade .. '|'
         reaper.GetSetMediaItemInfo_String(mediaItem[i], "P_NOTES", itemName, true)
     end
@@ -3353,6 +3362,128 @@ function renameItems()
     reaper.ThemeLayout_RefreshAll()
     getTrackContent()
     pendingLiveUpdate = true
+end
+
+function renameCuesWindow()
+    local spaceBtn = 20
+    local minPaneWidth = 100
+    local minTextWidth = 100
+    local minFadeWidth = 50
+    local minButtonWidth = 100
+    local minButtonHeight = 20
+    local minWindowWidth = minPaneWidth + minButtonWidth + spaceBtn + 50
+
+    local windowWidth, windowHeight = reaper.ImGui_GetWindowSize(ctx)
+    windowWidth = math.max(windowWidth, minWindowWidth)
+    local paneWidth = math.max(minPaneWidth, windowWidth - minButtonWidth - spaceBtn - 20)
+    local fadeWidth = math.max(minFadeWidth, 50)
+    local buttonWidth = math.max(minButtonWidth, 100)
+    local buttonHeight = math.max(minButtonHeight, 20)
+    local textWidth = paneWidth - fadeWidth - buttonWidth - 170
+    local spacer = 20
+    local usedTracks = readTrackGUID('used')
+    local tcTrack = readTrackGUID('selected')
+
+    -- Überprüfen, ob der ausgewählte Track in den verwendeten Tracks vorhanden ist
+    local trackFound = false
+    for _, track in ipairs(usedTracks) do
+        if track == tcTrack then
+            trackFound = true
+            break
+        end
+    end
+    -- Wenn der ausgewählte Track nicht in den verwendeten Tracks vorhanden ist, setze tcTrack auf den ersten verwendeten Track
+    if not trackFound then
+        tcTrack = usedTracks[1]
+    end
+
+    if tcTrack == nil or trackFound == false then
+        reaper.ImGui_Text(ctx, 'No TCHelper track selected')
+        tcTrack = previousTrackGUID
+        return
+    end
+    if previousTrackGUID ~= tcTrack or eventAdded then
+        NewCueNames = getCueNames()
+        NewFadeTimes = getFadeTimes()
+        previousTrackGUID = tcTrack
+        eventAdded = false
+    end
+
+    if not app.layout then
+        app.layout = {
+            selected = 0,
+        }
+    end
+    seqName = loadedtracks[tcTrack].name or "No track"
+    reaper.ImGui_Text(ctx, 'Selected track: ' .. seqName)
+
+    -- Prüfe, ob Temp/Flash
+    local isTempOrFlash = loadedtracks[tcTrack] and (
+        loadedtracks[tcTrack].execoption == "Temp Button" or
+        loadedtracks[tcTrack].execoption == "Flash Button"
+    )
+
+    if reaper.ImGui_BeginChild(ctx, 'left pane', paneWidth, windowHeight - 50, true) then
+        reaper.ImGui_SetCursorPos(ctx, 10, 10)
+        reaper.ImGui_Text(ctx, 'Cuenames')
+        reaper.ImGui_SetCursorPos(ctx, paneWidth - fadeWidth - buttonWidth - 90, 10)
+        reaper.ImGui_Text(ctx, 'Fadetimes')
+        local j = 0
+        local lineHeight = reaper.ImGui_GetTextLineHeight(ctx) + 8
+        for i = 1, #NewCueNames, 1 do
+            local cueID = (i < 10) and string.format('%02d', i) or i
+            local startY = 30 + (i - 1) * lineHeight
+
+            -- CUE NAME
+            reaper.ImGui_SetCursorPos(ctx, 10, startY)
+            if isTempOrFlash and i > 1 then
+                reaper.ImGui_BeginDisabled(ctx)
+                reaper.ImGui_SetNextItemWidth(ctx, textWidth)
+                reaper.ImGui_InputText(ctx, 'Cue-' .. cueID, NewCueNames[i] or "", reaper.ImGui_InputTextFlags_ReadOnly())
+                reaper.ImGui_EndDisabled(ctx)
+            else
+                reaper.ImGui_SetNextItemWidth(ctx, textWidth)
+                local rv1
+                rv1, NewCueNames[i] = reaper.ImGui_InputText(ctx, 'Cue-' .. cueID, NewCueNames[i])
+            end
+
+            -- FADETIME
+            local fadeX = paneWidth - fadeWidth - buttonWidth - 90
+            reaper.ImGui_SetCursorPos(ctx, fadeX, startY)
+            if isTempOrFlash and i > 1 then
+                reaper.ImGui_BeginDisabled(ctx)
+                reaper.ImGui_SetNextItemWidth(ctx, fadeWidth)
+                reaper.ImGui_InputText(ctx, 'Fade-' .. cueID, NewFadeTimes[i] or "", reaper.ImGui_InputTextFlags_ReadOnly())
+                reaper.ImGui_EndDisabled(ctx)
+            else
+                reaper.ImGui_SetNextItemWidth(ctx, fadeWidth)
+                local rv2
+                rv2, NewFadeTimes[i] = reaper.ImGui_InputText(ctx, 'Fade-' .. cueID, NewFadeTimes[i])
+            end
+
+            -- JUMP BUTTON
+            local jumpX = paneWidth - buttonWidth - 10
+            reaper.ImGui_SetCursorPos(ctx, jumpX, startY)
+            if reaper.ImGui_Button(ctx, 'jump ' .. i, buttonWidth, buttonHeight) then
+                local trackItem = reaper.BR_GetMediaTrackByGUID(0, tcTrack)
+                local item = reaper.GetTrackMediaItem(trackItem, j)
+                local rv, itemGUID = reaper.GetSetMediaItemInfo_String(item, "GUID", "", false)
+                local newCursorPos = loadedtracks[tcTrack].cue[itemGUID].itemStart
+                setCursorToItem(newCursorPos)
+            end
+            j = j + 1
+        end
+        reaper.ImGui_EndChild(ctx)
+    end
+    reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
+    if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', buttonWidth, 80) then
+        renameItems()
+        NewCueNames = getCueNames()
+        NewFadeTimes = getFadeTimes()
+    end
+
+    -- Dummy-Komponente hinzufügen, um die Fenstergrenzen zu validieren
+    reaper.ImGui_Dummy(ctx, 0, 0)
 end
 function renumberItems()
     local selTrack = readTrackGUID('selected')
