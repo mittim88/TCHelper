@@ -6,6 +6,7 @@
 --   v3.4.1 - Fixed: -startup crash because of shortcuts), naming of sequences
 --   v3.4.2 - Fixed: -naming issue of temp/flash cues (all temp/flash cues are now named the same)
 --   v3.4.3 - Updated: -changed naming behavior of temp/flash cuename window (only the first cue is named)
+--   v3.4.4 - Fixed: -Fadetime behavior for temp/flash cues"
 -- @provides
 --   /TC_Helper/*.lua
 --   /TC_Helper/data/pdf/*.pdf
