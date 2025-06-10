@@ -1,12 +1,13 @@
 -- @description TCHelper
--- @version 3.4.3
+-- @version 3.4.4
 -- @author mittim88
 -- @changelog
 --   v3.4.0 - Added: Shortcut functionality (Settings -> Shortcuts)
 --   v3.4.1 - Fixed: -startup crash because of shortcuts), naming of sequences
 --   v3.4.2 - Fixed: -naming issue of temp/flash cues (all temp/flash cues are now named the same)
 --   v3.4.3 - Updated: -changed naming behavior of temp/flash cuename window (only the first cue is named)
---   v3.4.4 - Fixed: -Fadetime behavior for temp/flash cues"
+--   v3.4.4 - Fixed: -Fadetime behavior for temp/flash cues
+--                   -Cue Notes cannot be changed anymore (chaning caused crash an corrupted project)
 -- @provides
 --   /TC_Helper/*.lua
 --   /TC_Helper/data/pdf/*.pdf
@@ -16,7 +17,7 @@
 --   /TC_Helper/data/projectTemplate/*.RPP
 
 
-local version = '3.4.3'
+local version = '3.4.4'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
 local mode2BETA = false
 local testcmd3 = 'Echo --CONNECTION IS FINE--'
@@ -396,7 +397,59 @@ function tableToString(tbl)
     table.insert(result, "}")
     return table.concat(result, "\n")
 end
+local notesWarned = false
 
+local notesWarned = false
+
+local notesWarned = false
+
+function checkAndRestoreNotes()
+    local anyWrong = false
+    local usedTracks = readTrackGUID('used')
+    for _, trackGUID in ipairs(usedTracks) do
+        local itemGUIDs = readItemGUID(trackGUID)
+        for _, itemGUID in ipairs(itemGUIDs) do
+            local item = reaper.BR_GetMediaItemByGUID(0, itemGUID)
+            if item and loadedtracks[trackGUID] and loadedtracks[trackGUID].cue and loadedtracks[trackGUID].cue[itemGUID] then
+                local cue = loadedtracks[trackGUID].cue[itemGUID]
+                local cueName = cue and cue.name or ""
+                local execoption = loadedtracks[trackGUID].execoption or ""
+                local cuenr = cue and cue.cuenr or ""
+                local fadetime = cue and cue.fadetime or ""
+                local holdtime = cue and cue.holdtime or ""
+
+                local expectedNotes = ""
+                if execoption == "Cue List" then
+                    expectedNotes = "|" .. cueName .. "|\n|" .. execoption .. "|\n|Cue: " .. cuenr .. "|\n|Fadetime: " .. fadetime .. "|"
+                elseif execoption == "Flash Button" or execoption == "Temp Button" then
+                    expectedNotes = "|" .. cueName .. "|\n|" .. execoption .. "|\n|Press: " .. cuenr .. "|\n|Fadetime: " .. fadetime .. "|\n|Hold: " .. holdtime .. "|"
+                end
+
+                local rv, currentNotes = reaper.GetSetMediaItemInfo_String(item, "P_NOTES", "", false)
+                if type(currentNotes) ~= "string" then currentNotes = "" end
+
+                -- Wenn die Note leer ist oder nicht exakt dem erwarteten Wert entspricht, wiederherstellen
+                if currentNotes ~= expectedNotes then
+                    reaper.GetSetMediaItemInfo_String(item, "P_NOTES", expectedNotes, true)
+                    -- Nochmals prüfen, ob die Wiederherstellung erfolgreich war
+                    local rv2, newNotes = reaper.GetSetMediaItemInfo_String(item, "P_NOTES", "", false)
+                    if type(newNotes) ~= "string" then newNotes = "" end
+                    if newNotes ~= expectedNotes then
+                        anyWrong = true
+                    end
+                end
+            end
+        end
+    end
+
+    -- Nur warnen, wenn mindestens ein Fehler gefunden wurde und noch nicht gewarnt wurde
+    if anyWrong and not notesWarned then
+        reaper.ShowMessageBox("Bitte ändere die Notes eines Cues nicht direkt!\nNutze stattdessen das Cue Window in TCHelper.", "Warnung", 0)
+        notesWarned = true
+    elseif not anyWrong then
+        notesWarned = false
+    end
+end
 -- Deserialisiert einen String in eine Tabelle
 function stringToTable(str)
     local func = load("return " .. str)
@@ -781,8 +834,6 @@ function getTrackContent()
                     local offset = reaper.GetProjectTimeOffset(0, false)
                     itemStart = itemStart + offset 
                     local itemLength = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
-
-
                     local fadetime = itemword[iGC][4]:gsub("%D", "") or 0
                     local cueNr = itemword[iGC][3]:gsub("%D", "")
 
@@ -3502,16 +3553,30 @@ function renumberItems()
                 local rv = ''
                 local mediaItem = reaper.BR_GetMediaItemByGUID(0, itemGUID[i])
                 rv, name = reaper.GetSetMediaItemInfo_String(mediaItem, "P_NOTES", name, false)
+                -- Robust: Wenn Note leer oder zerstört, mit Default auffüllen
+                if not name or name == "" then
+                    -- Versuche, die Daten aus loadedtracks zu holen
+                    local cue = loadedtracks[selTrack].cue[itemGUID[i]]
+                    local cueName = cue and cue.name or ("Cue - " .. i)
+                    local execoption = loadedtracks[selTrack].execoption or "Cue List"
+                    local fadetime = cue and cue.fadetime or "2"
+                    name = "|" .. cueName .. "|\n|" .. execoption .. "|\n|Cue: " .. i .. "|\n|Fadetime: " .. fadetime .. "|"
+                    reaper.GetSetMediaItemInfo_String(mediaItem, "P_NOTES", name, true)
+                end
                 for w in string.gmatch(name, "|([^|]+)|") do
-                    --namePart[i] = w or 'not defined'
                     table.insert(namePart[i], w)
                 end
-                
-                oldCueNr[i] = tonumber(string.match(namePart[i][3], "Cue: (%d+)"))
-                --oldCueNr[i] = tonumber(namePart[i][3]:gsub("%D", ""))
-                
-                --reaper.ShowConsoleMsg('\nName Part: '..namePart[i][3])
-                --reaper.ShowConsoleMsg('\noldNumber: '..oldCueNr[i])
+                -- Sicherstellen, dass alle Felder existieren
+                namePart[i][1] = namePart[i][1] or ("Cue - " .. i)
+                namePart[i][2] = namePart[i][2] or (loadedtracks[selTrack].execoption or "Cue List")
+                namePart[i][3] = namePart[i][3] or ("Cue: " .. i)
+                namePart[i][4] = namePart[i][4] or ("Fadetime: " .. (loadedtracks[selTrack].cue[itemGUID[i]] and loadedtracks[selTrack].cue[itemGUID[i]].fadetime or "2"))
+                -- Robust: Nur wenn Feld existiert, dann match
+                if namePart[i][3] and type(namePart[i][3]) == "string" then
+                    oldCueNr[i] = tonumber(string.match(namePart[i][3], "Cue: (%d+)"))
+                else
+                    oldCueNr[i] = i
+                end
                 if selectedOption == 'Cue List' then
                     local newName = '|' ..namePart[i][1] ..'|\n|' ..namePart[i][2] .. '|\n|Cue: ' .. i .. '|\n|'..namePart[i][4].. '|'
                     reaper.GetSetMediaItemInfo_String(mediaItem, "P_NOTES", newName, true)
@@ -3521,17 +3586,11 @@ function renumberItems()
                     reaper.GetSetMediaItemInfo_String(mediaItem, "P_NOTES", newName, true)
                     reaper.ThemeLayout_RefreshAll()                    
                 end
-                
                 ----UPDATE CONSOLE SETUP 
                 if liveupdatebox == true then
                     if selectedOption == 'Cue List' then 
-                        ---------CUELIST RENUMBERRING
                         if i ~= oldCueNr[i] then
                             local nextCue = i + 1
-                            --reaper.ShowConsoleMsg('\nrenumber Start')
-                            --reaper.ShowConsoleMsg('\ni: '..i)
-                            --reaper.ShowConsoleMsg('\noldNumber: '..oldCueNr[i]) 
-
                             local cmd = 'Move Sequence '..seqID..' Cue "'..namePart[i][1]..'" at Sequence '..seqID..' Cue '..i
                             if MAmode == 'Mode 2' then
                                 sendTelnet(cmd)
@@ -3552,7 +3611,6 @@ function renumberItems()
                             sendedData[selTrack].cue[itemGUID[i]].itemStart = 'empty'
                             sendedData[selTrack].execoption = 'empty'
                             sendedData[selTrack].cue[itemGUID[i]].token = 'empty'
-                            --reaper.ShowConsoleMsg('\n LIST RENUMBER END')
                         end                
                     end
                 end
@@ -4333,6 +4391,7 @@ local flags = reaper.ImGui_WindowFlags_MenuBar()   -- Add Menu bar and remove th
 local function loop()
     if addonCheck == true then
         renumberItems()
+        checkAndRestoreNotes()
         --setIPAdress()
         --updateInputCueName()
         
