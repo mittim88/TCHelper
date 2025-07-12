@@ -29,6 +29,9 @@ local startupMode = 'Mode 3'
 local prefix = reaper.GetExtState('network','prefix')
 local consolePort = reaper.GetExtState('network','port')
 local repositoryName = 'mittim88_ReaScript_Repository'
+local listen_port = reaper.GetExtState('network','listen_Port') or '9000'
+local receiveOSCState = false
+
 ------MA 2 ---------------INPUTS---------------------------------------------------------------
 local userName = reaper.GetExtState('network','userName')
 ------MA 2 + 3---------------INPUTS---------------------------------------------------------------
@@ -291,6 +294,12 @@ else
     reaper.ShowMessageBox("Missing Mavriq Lua Sockets\n Install it with Reapack:\nhttps://raw.githubusercontent.com/mavriq-dev/public-reascripts/master/index.xml", "Error", 0)
 end
 dofile(script_path .. '/osc.lua') -- Load OSC Functions made over LuaSockets for send/Receive OSC
+
+
+----------------OSC RECEIVE SOCKETS---------------------------------------------------------------------------------
+local udp = assert(socket.udp())
+assert(udp:setsockname(hostIP, listen_port))
+udp:settimeout(0)
 ----------------SETUP GUI-----------------------------------------------------------------------------------------------
 local doStatus , lib = pcall(dofile, reaper.GetResourcePath()..'/Scripts/ReaTeam Extensions/API/imgui.lua')
 local ctx = 'empty'
@@ -355,6 +364,76 @@ function checkSWS()
     end
     
 end
+------OSC RECEIVE STUFF-------------------------------------------------------------
+-- OSC Parser: Extrahiert Adresse, Typ-Tag und Argumente aus einer OSC-Nachricht
+local function parseOSC(data)
+    if not data then return nil end
+    local addr_end = data:find("\0")
+    if not addr_end then return nil end
+    local address = data:sub(1, addr_end - 1)
+    local idx = addr_end + (4 - ((addr_end - 1) % 4))
+    if idx > #data then return address end
+    if data:sub(idx, idx) ~= "," then return address end
+    local typetag_end = data:find("\0", idx)
+    if not typetag_end then return address end
+    local typetag = data:sub(idx + 1, typetag_end - 1)
+    local args = {}
+    local arg_ptr = typetag_end + (4 - ((typetag_end - 1) % 4))
+    for i = 1, #typetag do
+        local t = typetag:sub(i, i)
+        if t == "s" then
+            local arg_end = data:find("\0", arg_ptr)
+            if not arg_end then break end
+            local arg = data:sub(arg_ptr, arg_end - 1)
+            table.insert(args, arg)
+            arg_ptr = arg_end + (4 - ((arg_end) % 4))
+        elseif t == "i" or t == "f" then
+            arg_ptr = arg_ptr + 4
+        else
+            arg_ptr = arg_ptr + 4
+        end
+    end
+    return address, typetag, args
+end
+local tcData = { showID = nil, trackGroups = {} }
+local currentTrackGroup = nil
+local currentTrack = nil
+local currentEvent = nil
+
+-- Sortiert empfangene OSC-Nachrichten in den Table ein
+local function storeTCHelperInfo(address, value)
+    if address == "/TCHelper/showID" then
+        tcData.showID = value
+    elseif address == "/TCHelper/trackGroup" then
+        currentTrackGroup = { name = value, tracks = {} }
+        table.insert(tcData.trackGroups, currentTrackGroup)
+        currentTrack = nil
+    elseif address == "/TCHelper/track" then
+        if currentTrackGroup then
+            currentTrack = { name = value, events = {} }
+            table.insert(currentTrackGroup.tracks, currentTrack)
+        end
+        currentEvent = nil
+    elseif address == "/event/name" then
+        if currentTrack then
+            if currentEvent and currentEvent.name then
+                table.insert(currentTrack.events, currentEvent)
+            end
+            currentEvent = { name = value }
+        end
+    elseif address == "/event/start" then
+        if currentEvent then currentEvent.start = value end
+    elseif address == "/event/stop" then
+        if currentEvent then currentEvent.stop = value end
+    elseif address == "/event/action" then
+        if currentEvent then currentEvent.action = value end
+        if currentTrack and currentEvent and currentEvent.name then
+            table.insert(currentTrack.events, currentEvent)
+            currentEvent = nil
+        end
+    end
+end
+local
 -----------------BACKROUND STUFF-------------------------------------------------------------
 function consoleMSG(x)
     reaper.ShowConsoleMsg(x..'\n')
@@ -398,11 +477,6 @@ function tableToString(tbl)
     return table.concat(result, "\n")
 end
 local notesWarned = false
-
-local notesWarned = false
-
-local notesWarned = false
-
 function checkAndRestoreNotes()
     local anyWrong = false
     local usedTracks = readTrackGUID('used')
@@ -450,7 +524,6 @@ function checkAndRestoreNotes()
         notesWarned = false
     end
 end
--- Deserialisiert einen String in eine Tabelle
 function stringToTable(str)
     local func = load("return " .. str)
     if func then
@@ -1411,6 +1484,45 @@ function togglePlayPause()
         reaper.OnPauseButton() -- Pausiert die Wiedergabe
     end
 end
+-------RECEIVE OSC MESSAGES---------------------------------------------------
+local function printOSCMessage(address, typetag, args)
+    reaper.ShowConsoleMsg("[OSC ADDRESS] " .. tostring(address) .. "\n")
+    if typetag then
+        reaper.ShowConsoleMsg("[OSC TYPES] " .. typetag .. "\n")
+    end
+    if args and #args > 0 then
+        for i, arg in ipairs(args) do
+            reaper.ShowConsoleMsg("[OSC ARG " .. i .. "] " .. tostring(arg) .. "\n")
+        end
+    end
+end
+local function printTCHelperTable()
+    local function printTable(tbl, indent)
+        indent = indent or ""
+        for k, v in pairs(tbl) do
+            if type(v) == "table" then
+                reaper.ShowConsoleMsg(indent .. tostring(k) .. ":\n")
+                printTable(v, indent .. "  ")
+            else
+                reaper.ShowConsoleMsg(indent .. tostring(k) .. ": " .. tostring(v) .. "\n")
+            end
+        end
+    end
+    reaper.ShowConsoleMsg("TCHelper Table:\n")
+    printTable(tcData)
+end
+local function onOSCMessage(data)
+    local address, typetag, args = parseOSC(data)
+    if address then
+        if args and #args > 0 then
+            storeTCHelperInfo(address, args[1])
+        end
+        --printOSCMessage(address, typetag, args)
+        printTCHelperTable()
+    else
+        reaper.ShowConsoleMsg("[OSC RAW] " .. tostring(data) .. "\n")
+    end
+end
 ---SELECTION TOOLS
 function snapCursorToSelection()
     local selectedItem = getFirstTouchedMediaItem()
@@ -1974,9 +2086,13 @@ function connectionWindowMode3()
     textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     
     
+    ---------------Output Port---------------------------------------------------------------
+    reaper.ImGui_SetNextItemWidth(ctx, 250)
+    rv, consolePort = reaper.ImGui_InputText(ctx, 'Port Output', consolePort)
+    textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     ---------------Input Port---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
-    rv, consolePort = reaper.ImGui_InputText(ctx, 'Port', consolePort)
+    rv, listen_port = reaper.ImGui_InputText(ctx, 'Port Input', listen_port)
     textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     ---------------Input Praefix---------------------------------------------------------------
     reaper.ImGui_SetNextItemWidth(ctx, 250)
@@ -1993,9 +2109,11 @@ function connectionWindowMode3()
     ---------------BUTTON---------------------------------------------------------------
     ---------------Test Button---------------------------------------------------------------
     rv,liveupdatebox = ImGui.Checkbox(ctx, 'Live update to console', liveupdatebox)
+    rv,receiveOSCState = ImGui.Checkbox(ctx, 'Receive data from console', receiveOSCState)
     if reaper.ImGui_Button(ctx, '       Save\nNetworkconfig', 121, 50) then
         reaper.SetExtState('network','ip',hostIP,true)
         reaper.SetExtState('network','port',consolePort,true)
+        reaper.SetExtState('network','listen_port',listen_port,true)
         reaper.SetExtState('network','prefix',prefix,true)
         reaper.SetExtState('basic','dataPoolName',datapoolName,true)
     end
@@ -2010,6 +2128,7 @@ function connectionWindowMode3()
     if reaper.ImGui_Button(ctx, ' Reset\nConfig', 121, 50) then
         hostIP = dummyIPstring
         consolePort = '8000'
+        listen_port = '9000'
         prefix = 'reaper'
         datapoolName = 'default'
         reaper.SetExtState('network','ip',hostIP,true)
@@ -4409,6 +4528,16 @@ local function loop()
             pendingLiveUpdate = false
         end
 
+        --RECEIVE OSC COMMANDS--------------------
+            -- OSC abfragen
+        if receiveOSCState == true then
+            local data = udp:receive()
+            if data then
+                onOSCMessage(data)
+            end
+            
+        end
+        
         lastLiveUpdateState = liveupdatebox
 
         --reaper.ShowConsoleMsg('\n'..inputCueName)
