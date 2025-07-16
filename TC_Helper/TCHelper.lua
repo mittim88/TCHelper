@@ -16,7 +16,12 @@
 --   /TC_Helper/data/logo/*.png
 --   /TC_Helper/data/projectTemplate/*.RPP
 
-
+----------Require ext Files---------------------------------------------------
+local script_path = debug.getinfo(1, 'S').source:match([[^@?(.*[\/])[^\/]-$]])
+package.path = script_path .. "?.lua;" .. package.path
+local format = require('format')
+local shortcuts = require('shortcuts')
+--------------------------------------------------------------------------------
 local version = '3.4.4'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
 local mode2BETA = false
@@ -92,7 +97,6 @@ local dummyIPstring = '--Enter console IP--'
 local tracks = {}
 local loadedtracks = {}
 local sendedData = {}
-local dummytrack = {}
 local clipboard = {}
 local previousTrackGUID = nil
 local oldusedTracks = nil
@@ -131,31 +135,36 @@ local BigLogoWidth = 130
 local BigLogoHeight = 110
 local BigLogoY = -10
 local assigningShortcut = nil -- Speichert den TrackGUID, für den ein Shortcut zugewiesen wird
-local trackShortcuts = trackShortcuts or {}
-local globalShortcuts = globalShortcuts or { playPause = "P", createCue = "N" }
-local trackShortcutsSafed = reaper.GetExtState('TCHelper', 'trackShortcutsSafed') or false
-local globalShortcutsSafed = reaper.GetExtState('TCHelper', 'globalShortcutsSafed') or false
+trackShortcuts = trackShortcuts or {}
+globalShortcuts = globalShortcuts or { playPause = "P", createCue = "N" }
+trackShortcutsSafed = reaper.GetExtState('TCHelper', 'trackShortcutsSafed') or false
+globalShortcutsSafed = reaper.GetExtState('TCHelper', 'globalShortcutsSafed') or false
 --------------------------------------------------------------- 
-dummytrack.id = 'dummyTrackID'
-dummytrack.name = 'dummySeqName'
-dummytrack.execID = 'dummyExecID'
-dummytrack.pageID = 'dummyPageID'
-dummytrack.seqID = 'dummySeqID'
-dummytrack.execoption = 'dummyExecOption'
-dummytrack.cue = {}
-dummytrack.cue.id = 'dummyCueID'
-dummytrack.cue.name = 'dummyCueName'
-dummytrack.cue.fadetime = 'dummyFadetime'
-dummytrack.cue.holdtime = 'dummyHoldTime'
-dummytrack.cue.itemStart = 'dummyitemStart'
-dummytrack.cue.itemEnd = 'dummyitemEnd'
-local trackIcon = {}
-trackIcon.name = {}
-trackIcon.name[1] = 'Cuelist.png'
-trackIcon.name[2] = 'Flash.png'
-trackIcon.name[3] = 'Temp.png'
-trackIcon.name[4] = 'Top.png'
-trackIcon.name[5] = 'Top Release.png'
+local dummytrack = {
+    id = 'dummyTrackID',
+    name = 'dummySeqName',
+    execID = 'dummyExecID',
+    pageID = 'dummyPageID',
+    seqID = 'dummySeqID',
+    execoption = 'dummyExecOption',
+    cue = {
+        id = 'dummyCueID',
+        name = 'dummyCueName',
+        fadetime = 'dummyFadetime',
+        holdtime = 'dummyHoldTime',
+        itemStart = 'dummyitemStart',
+        itemEnd = 'dummyitemEnd'
+    }
+}
+local trackIcon = {
+    name = {
+        'Cuelist.png',
+        'Flash.png',
+        'Temp.png',
+        'Top.png',
+        'Top Release.png'
+    },
+}
 local inputHH = 0
 local inputMM = 0
 local inputSS = 0
@@ -302,7 +311,7 @@ assert(udp:setsockname(hostIP, listen_port))
 udp:settimeout(0)
 ----------------SETUP GUI-----------------------------------------------------------------------------------------------
 local doStatus , lib = pcall(dofile, reaper.GetResourcePath()..'/Scripts/ReaTeam Extensions/API/imgui.lua')
-local ctx = 'empty'
+ctx = 'empty'
 local sans_serif = 'empty'
 if doStatus == true then
     local foo = lib
@@ -509,39 +518,6 @@ function fetchXML(url)
 
     return table.concat(response), code
 end
-function tableToString(tbl)
-    local result = {}
-    local function serialize(tbl, indent)
-        for k, v in pairs(tbl) do
-            local key = type(k) == "string" and string.format("%q", k) or tostring(k)
-            if type(v) == "table" then
-                table.insert(result, string.format("%s[%s] = {", indent, key))
-                serialize(v, indent .. "  ")
-                table.insert(result, string.format("%s},", indent))
-            else
-                local value = type(v) == "string" and string.format("%q", v) or tostring(v)
-                table.insert(result, string.format("%s[%s] = %s,", indent, key, value))
-            end
-        end
-    end
-    table.insert(result, "{")
-    serialize(tbl, "  ")
-    table.insert(result, "}")
-    return table.concat(result, "\n")
-end
-function formatFadeTime(data)
-    local string = data
-    string = string:gsub(",",".")
-    string = string:gsub("[^%d%.]", "")
-     local pre, post = string:match("^(%d*)%.?(%d*)$")
-    if pre == "" and post == "" then return "0.00" end
-    if post ~= "" then
-        post = post:sub(1,2)                  -- Maximal 2 Nachkommastellen
-        return pre .. "." .. (post .. "00"):sub(1,2)
-    else
-        return pre .. ".00"
-    end
-end
 local notesWarned = false
 function checkAndRestoreNotes()
     local anyWrong = false
@@ -717,22 +693,6 @@ function defineBash()
         consoleMSG('NO SUPPORTED OS')
     end
 return bash,system
-end
-function replaceSpecialCharacters(inputString)
-    local replacements = {
-        { "ä", "ae" },
-        { "ö", "oe" },
-        { "ü", "ue" },
-        { "Ä", "Ae" },
-        { "Ö", "Oe" },
-        { "Ü", "Ue" }
-    }
-
-    for _, replacement in ipairs(replacements) do
-        inputString = string.gsub(inputString, replacement[1], replacement[2])
-    end
-
-    return inputString
 end
 function checkDuplicateCueNames()
     getTrackContent()
@@ -1403,113 +1363,6 @@ function copyFile(source, destination)
     -- if result ~= 0 then
     --     reaper.ShowMessageBox("Fehler beim Kopieren der Datei: " .. source.. ' nach: '..destination, "Fehler", 0)
     -- end
-end
-function checkShortcuts()
-    trackShortcuts = trackShortcuts or {}
-    -- Verhindere das Erstellen von Events, wenn ein Shortcut zugewiesen wird
-    if assigningShortcut then return end
-    if textInputActive then return end
-    -- Initialisiere globalShortcuts, falls sie nicht existiert
-    globalShortcuts = globalShortcuts or { playPause = "P", createCue = "N" }
-    -- Track-Shortcuts prüfen
-    local usedTracks = readTrackGUID("used")
-    for _, trackGUID in ipairs(usedTracks) do
-        local assignedKey = trackShortcuts[trackGUID]
-        if assignedKey then
-            local imguiKeyFunc = reaper["ImGui_Key_" .. assignedKey]
-            if imguiKeyFunc and reaper.ImGui_IsKeyPressed(ctx, imguiKeyFunc()) then
-                -- Füge ein Cue zum Track hinzu, auch wenn kein Track ausgewählt ist
-                addItem(trackGUID)
-                return
-            end
-        end
-    end
-
-    -- Shortcut für Play/Pause
-    if globalShortcuts.playPause then
-        local playPauseKeyFunc = reaper["ImGui_Key_" .. globalShortcuts.playPause]
-        if playPauseKeyFunc and reaper.ImGui_IsKeyPressed(ctx, playPauseKeyFunc()) then
-            togglePlayPause()
-        end
-    end
-
-    -- Shortcut für das Erstellen eines Cues im ausgewählten Track
-    if globalShortcuts.createCue then
-        local createCueKeyFunc = reaper["ImGui_Key_" .. globalShortcuts.createCue]
-        if createCueKeyFunc and reaper.ImGui_IsKeyPressed(ctx, createCueKeyFunc()) then
-            createCueInSelectedTrack()
-        end
-    end
-end
-function saveShortcuts()
-    trackShortcuts = trackShortcuts or {}
-    local serializedShortcuts = tableToString(trackShortcuts)
-    reaper.SetExtState("TCHelper", "TrackShortcuts", serializedShortcuts, true)
-    reaper.SetExtState("TCHelper", "trackShortcutsSafed", "true", true)
-end
-function loadShortcuts()
-    -- Initialisiere trackShortcuts, falls sie nicht existiert
-    trackShortcuts = trackShortcuts or {}
-
-    local serializedShortcuts = reaper.GetExtState("TCHelper", "TrackShortcuts")
-    local userDefined = reaper.GetExtState("TCHelper", "trackShortcutsSafed")
-
-    if serializedShortcuts and serializedShortcuts ~= "" and userDefined == "true" then
-        -- Benutzer hat eigene Shortcuts gespeichert → lade diese
-        trackShortcuts = stringToTable(serializedShortcuts)
-    else
-        -- Noch keine eigenen Shortcuts gespeichert → Standard-Shortcuts 1-9 für die ersten 9 used Tracks
-        local defaultKeys = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
-        local usedTracks = readTrackGUID("used")
-        for i, trackGUID in ipairs(usedTracks) do
-            if defaultKeys[i] then
-                trackShortcuts[trackGUID] = defaultKeys[i]
-            end
-        end
-        -- NICHT speichern! Erst speichern, wenn der User einen Shortcut selbst zuweist
-    end
-end
-function initializeTrackShortcuts()
-    trackShortcuts = trackShortcuts or {}
-    -- Sicherstellen, dass trackShortcuts initialisiert ist
-    --trackShortcuts = trackShortcuts or {}
-    if trackShortcutsSafed == false or trackShortcutsSafed == 'false' then
-        -- Hole die GUIDs der "used" Tracks
-        local usedTracks = readTrackGUID("used")
-        local defaultKeys = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
-    
-        -- Weisen Sie den ersten 9 "used" Tracks die Shortcuts 1-9 zu
-        for i = 1, math.min(#usedTracks, 9) do
-            local trackGUID = usedTracks[i]
-            trackShortcuts[trackGUID] = defaultKeys[i]
-            consoleMSG('TrackGUID: '..trackGUID..' assigned to: '..defaultKeys[i])
-        end
-    
-        -- Optional: Shortcuts speichern
-        saveShortcuts()
-        
-    end
-end
-function saveGlobalShortcuts()
-    local serializedShortcuts = tableToString(globalShortcuts)
-    reaper.SetExtState("TCHelper", "GlobalShortcuts", serializedShortcuts, true)
-    reaper.SetExtState("TCHelper", "globalShortcutsSafed", "true", true)
-
-end
-function loadGlobalShortcuts()
-    -- Initialisiere globalShortcuts, falls sie nicht existiert
-    if not globalShortcuts then
-        globalShortcuts = { playPause = "Space", createCue = "." }
-    end
-
-    local serializedShortcuts = reaper.GetExtState("TCHelper", "GlobalShortcuts")
-    if serializedShortcuts and serializedShortcuts ~= "" then
-        globalShortcuts = stringToTable(serializedShortcuts)
-    else
-        -- Standard-Shortcuts definieren, wenn keine vorhanden sind
-        globalShortcuts = { playPause = "Space", createCue = "." }
-        saveGlobalShortcuts() -- Speichere die Standard-Shortcuts
-    end
 end
 function updateInputCueName(targetTrackGUID)
     -- Verwende den übergebenen TrackGUID oder den aktuell ausgewählten Track
@@ -2307,9 +2160,10 @@ function connectionWindowMode3()
         renumberItems()
         getTrackContent()
         InitiateSendedData()
-        local OscCommands = setOSCcommand()
+        local overwrite = true
+        local OscCommands = setOSCcommand(overwrite)
         sendToConsole(hostIP, consolePort, OscCommands)
-        
+        overwrite = false
     end
     if ImGui.IsItemHovered(ctx) then
         ImGui.SetTooltip(ctx, 'ATTENTION!! \nBUTTON OVERWRITES EXISTING CONTENT ON CONSOLE!!!!')
@@ -2427,7 +2281,7 @@ function openShortcutWindow()
                         if not isDuplicate then
                             trackShortcuts[trackGUID] = key -- Shortcut speichern
                             assigningShortcut = nil -- Zuweisung beenden
-                            saveShortcuts() -- Shortcuts speichern
+                            shortcuts.saveShortcuts() -- Shortcuts speichern
                         else
                             -- Zeige eine Fehlermeldung an
                             reaper.ShowMessageBox(
@@ -2488,7 +2342,7 @@ function openShortcutWindow()
                     if not isDuplicate then
                         globalShortcuts.playPause = key
                         assigningShortcut = nil
-                        saveGlobalShortcuts()
+                        shortcuts.saveGlobalShortcuts()
                     else
                         -- Zeige eine Fehlermeldung an
                         reaper.ShowMessageBox(
@@ -2545,7 +2399,7 @@ function openShortcutWindow()
                     if not isDuplicate then
                         globalShortcuts.createCue = key
                         assigningShortcut = nil
-                        saveGlobalShortcuts()
+                        shortcuts.saveGlobalShortcuts()
                     else
                         -- Zeige eine Fehlermeldung an
                         reaper.ShowMessageBox(
@@ -2736,7 +2590,7 @@ function CueListSetupWindow()
     reaper.ImGui_SetNextItemWidth(ctx, 300)
     rv, cueListName = reaper.ImGui_InputText(ctx, 'Sequence Name', cueListName)
     textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
-    cueListName = replaceSpecialCharacters(cueListName)
+    cueListName = format.replaceSpecialCharacters(cueListName)
     ---------------Input Sequence ID---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, 500, 80)
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
@@ -2861,7 +2715,7 @@ function SingleActionWindow()
     textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
     inputCueNameFieldActive = reaper.ImGui_IsItemActive(ctx)
     if rv then
-        inputCueName = replaceSpecialCharacters(inputCueName)
+        inputCueName = format.replaceSpecialCharacters(inputCueName)
     end
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, fadetime = reaper.ImGui_InputText(ctx, 'Fadetime ', fadetime)
@@ -2878,7 +2732,7 @@ function SingleActionWindow()
             --consoleMSG('Check False')
         else
             --consoleMSG('Check true')
-            fadetime = formatFadeTime(fadetime)
+            fadetime = format.formatFadeTime(fadetime)
             addItem()
         end 
         ---------------Delete Item Button---------------------------------------------------------------
@@ -2972,7 +2826,7 @@ function DoubleActionWindow()
             --consoleMSG('Check False')
         else
             --consoleMSG('Check true')
-        fadetime = formatFadeTime(fadetime)
+        fadetime = format.formatFadeTime(fadetime)
         addItem()
         
         end
@@ -3342,7 +3196,7 @@ function addTrack(params)
             trackShortcuts[newTrackGUID] = defaultShortcuts[i]
         end
     end
-    saveShortcuts()
+    shortcuts.saveShortcuts()
     getTrackContent()
     pendingLiveUpdate = true
     if not params.poolID then
@@ -3393,7 +3247,7 @@ function deleteTrack()
                 trackShortcuts[trackGUID] = nil
             end
         end      
-        saveShortcuts()
+        shortcuts.saveShortcuts()
         reaper.PreventUIRefresh(-1) -- Enable UI updates
         reaper.UpdateArrange() -- Refresh the GUI
     else
@@ -3592,7 +3446,7 @@ function addItem(trackGUID, params)
     SetupSendedDataItem(definedTrackGUID, newCueGUID)
     renumberItems()
     if trackShortcutsSafed == false then
-        initializeTrackShortcuts()
+        shortcuts.initializeTrackShortcuts()
     end
     getTrackContent()
     eventAdded = true
@@ -3622,7 +3476,7 @@ function renameItems()
     local newNameForAll = nil
     local newFadeForAll = nil
     if isTempOrFlash and NewCueNames and #NewCueNames > 0 then
-        newNameForAll = replaceSpecialCharacters(NewCueNames[1])
+        newNameForAll = format.replaceSpecialCharacters(NewCueNames[1])
     end
     if isTempOrFlash and NewFadeTimes and #NewFadeTimes > 0 then
         newFadeForAll = NewFadeTimes[1]
@@ -3637,12 +3491,12 @@ function renameItems()
         if isTempOrFlash and newNameForAll then
             inputName = newNameForAll
         else
-            inputName = replaceSpecialCharacters(NewCueNames[i])
+            inputName = format.replaceSpecialCharacters(NewCueNames[i])
         end
         if isTempOrFlash and newFadeForAll then
-            inputFade = formatFadeTime(newFadeForAll)
+            inputFade = format.formatFadeTime(newFadeForAll)
         else
-            inputFade = formatFadeTime(NewFadeTimes[i])
+            inputFade = format.formatFadeTime(NewFadeTimes[i])
         end
         itemName = '|' ..inputName..'|\n|' ..loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. i .. '|\n|Fadetime: ' ..inputFade .. '|'
         reaper.GetSetMediaItemInfo_String(mediaItem[i], "P_NOTES", itemName, true)
@@ -3652,7 +3506,6 @@ function renameItems()
     getTrackContent()
     pendingLiveUpdate = true
 end
-
 function renameCuesWindow()
     local spaceBtn = 20
     local minPaneWidth = 100
@@ -3910,13 +3763,18 @@ function createCueInSelectedTrack()
     addItem(selectedTrackGUID)
 end
 ---------------SEND OSC --------------------------------------------------------------------
-function setOSCcommand()
+function setOSCcommand(overwrite)
     getTrackContent()
     local cueGUID = {}
     local cueAmmount = {}
     local usedTrackGUID = readTrackGUID('used')
     local longestTime = getLongestTrackTime() + 10
     local buttonOption = ''
+    local token = overwrite
+    local cmdAddon = ''
+    if token == true then
+        cmdAddon = ' /o'
+    end
     local OscCommands = {
       sequence = {
         storeSeqCmd = {},
@@ -3930,7 +3788,7 @@ function setOSCcommand()
         holdCueCmd = {},
       },
       timecode = {
-        tcStoreCmd = 'Store TC ' .. tcID,
+        tcStoreCmd = 'Store TC ' .. tcID..cmdAddon,
         tcSetCmd = 'Set TC ' .. tcID .. ' Property "duration" ' .. longestTime,
         tcStoreTrackGroup = 'Store TC ' .. tcID .. '.1' .. ' "TC HELPER"',
         tcStoreCueCmd = {},
@@ -3983,15 +3841,15 @@ function setOSCcommand()
             buttonOption = 'top'
         end
 
-        OscCommands.sequence.storeSeqCmd[i] = 'Store Sequence ' ..loadedtracks[usedTrackGUID[i]].seqID
+        OscCommands.sequence.storeSeqCmd[i] = 'Store Sequence ' ..loadedtracks[usedTrackGUID[i]].seqID..cmdAddon
         OscCommands.sequence.labelSeqCmd[i] = 'Label Sequence ' ..loadedtracks[usedTrackGUID[i]].seqID .. ' "' .. loadedtracks[usedTrackGUID[i]].name .. '"'
         local trackID = reaper.BR_GetMediaTrackByGUID(0, usedTrackGUID[i])
         cueAmmount[i] = reaper.CountTrackMediaItems(trackID)
         -----TC TRACK COMMANDS
-        OscCommands.timecode.tcStoreTrackCmd[i] = 'Store TC ' .. tcID .. '.1.' .. i
+        OscCommands.timecode.tcStoreTrackCmd[i] = 'Store TC ' .. tcID .. '.1.' .. i..cmdAddon
         OscCommands.timecode.tcAssignSeqCmd[i] = 'Assign Sequence ' ..loadedtracks[usedTrackGUID[i]].seqID .. ' at TC ' .. tcID .. '.1.' .. i
         OscCommands.timecode.tcStoreTimeRangeCmd[i] = 'Store TC ' .. tcID .. '.1.' .. i .. '.1'
-        OscCommands.timecode.tcStoreSubTrackCmd[i] = 'Store Type "CmdSubTrack" Timecode ' .. tcID .. '.1.' .. i .. '.1.1'
+        OscCommands.timecode.tcStoreSubTrackCmd[i] = 'Store Type "CmdSubTrack" Timecode ' .. tcID .. '.1.' .. i .. '.1.1'..cmdAddon
         ------CUE COMMAND---------
         if loadedtracks[usedTrackGUID[i]].execoption == 'Cue List' then ------------------COMMANDS WENN TRACK CUELIST IST
             --reaper.ShowConsoleMsg('\n'..loadedtracks[usedTrackGUID[i]].execoption)
@@ -4613,9 +4471,9 @@ getTrackContent()
 checkSendedData()
 defineMA3ModeOnFirstStrartup()
 copyReaperTemplate()
-initializeTrackShortcuts()
-loadShortcuts()
-loadGlobalShortcuts()
+shortcuts.initializeTrackShortcuts()
+shortcuts.loadShortcuts()
+shortcuts.loadGlobalShortcuts()
 local xmlContent, code = fetchXML(page)
 if xmlContent then
     
@@ -4636,7 +4494,7 @@ local function loop()
         --setIPAdress()
         --updateInputCueName()
         
-        checkShortcuts() -- Überprüfe Tastendrücke
+        shortcuts.checkShortcuts() -- Überprüfe Tastendrücke
 
         -- Live Update: Änderungen nachholen, wenn aktiviert wird
         if liveupdatebox and not lastLiveUpdateState and pendingLiveUpdate then
