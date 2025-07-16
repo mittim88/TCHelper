@@ -59,7 +59,7 @@ local tcID = tonumber(reaper.GetExtState('trackconfig', 'tcId'))
 if tcID == nil then
     tcID = 1
 end
-local fadetime = 2
+local fadetime = "2.00"
 local datapoolName = reaper.GetExtState('basic','dataPoolName')
 local holdtime = '1.0'
 local inputCueName = 'empty'
@@ -366,6 +366,35 @@ function checkSWS()
 end
 ------OSC RECEIVE STUFF-------------------------------------------------------------
 -- OSC Parser: Extrahiert Adresse, Typ-Tag und Argumente aus einer OSC-Nachricht
+local tcData = {
+    showID = nil,
+    name = nil,
+    tracks = {},
+}
+local currentTrack = nil
+local currentEvent = nil
+
+local function printTCHelperTable()
+    local function printTable(tbl, indent)
+        if type(tbl) ~= "table" then
+            reaper.ShowConsoleMsg((indent or "") .. tostring(tbl) .. "\n")
+            return
+        end
+        indent = indent or ""
+        for k, v in pairs(tbl) do
+            if v == nil then
+                reaper.ShowConsoleMsg(indent .. tostring(k) .. ": nil\n")
+            elseif type(v) == "table" then
+                reaper.ShowConsoleMsg(indent .. tostring(k) .. ":\n")
+                printTable(v, indent .. "  ")
+            else
+                reaper.ShowConsoleMsg(indent .. tostring(k) .. ": " .. tostring(v) .. "\n")
+            end
+        end
+    end
+    reaper.ShowConsoleMsg("TCHelper Table:\n")
+    printTable(tcData)
+end
 local function parseOSC(data)
     if not data then return nil end
     local addr_end = data:find("\0")
@@ -395,45 +424,69 @@ local function parseOSC(data)
     end
     return address, typetag, args
 end
-local tcData = { showID = nil, trackGroups = {} }
-local currentTrackGroup = nil
-local currentTrack = nil
-local currentEvent = nil
-
--- Sortiert empfangene OSC-Nachrichten in den Table ein
 local function storeTCHelperInfo(address, value)
-    if address == "/TCHelper/showID" then
+    
+    local prefix = "/TCHelper"
+    --reaper.ShowConsoleMsg("OSC: " .. tostring(address) .. " = " .. tostring(value) .. "\n")
+
+    if address == prefix.."/showID" then
+        tcData = {
+            showID = nil,
+            name = nil,
+            tracks = {},
+        }
         tcData.showID = value
-    elseif address == "/TCHelper/trackGroup" then
-        currentTrackGroup = { name = value, tracks = {} }
-        table.insert(tcData.trackGroups, currentTrackGroup)
-        currentTrack = nil
-    elseif address == "/TCHelper/track" then
-        if currentTrackGroup then
-            currentTrack = { name = value, events = {} }
-            table.insert(currentTrackGroup.tracks, currentTrack)
-        end
-        currentEvent = nil
-    elseif address == "/event/name" then
-        if currentTrack then
-            if currentEvent and currentEvent.name then
-                table.insert(currentTrack.events, currentEvent)
-            end
-            currentEvent = { name = value }
-        end
-    elseif address == "/event/start" then
-        if currentEvent then currentEvent.start = value end
-    elseif address == "/event/stop" then
-        if currentEvent then currentEvent.stop = value end
-    elseif address == "/event/action" then
-        if currentEvent then currentEvent.action = value end
-        if currentTrack and currentEvent and currentEvent.name then
+
+    elseif address == prefix.."/showName" then
+        tcData.name = value
+
+    elseif address == prefix.."/track" then
+        -- Speichere offenes Event im alten Track (z.B. beim Trackwechsel)
+        if currentTrack and currentEvent then
             table.insert(currentTrack.events, currentEvent)
             currentEvent = nil
         end
+        -- Lege neuen Track an
+        currentTrack = { name = value, events = {} }
+        table.insert(tcData.tracks, currentTrack)
+
+    elseif address == prefix.."/poolID" then
+        if currentTrack then
+            currentTrack.poolID = value
+        end
+
+    elseif address == prefix.."/event/name" then
+        -- Speichere vorheriges Event, falls vorhanden
+        if currentTrack and currentEvent then
+            table.insert(currentTrack.events, currentEvent)
+        end
+        -- Starte neues Event
+        currentEvent = { name = value }
+
+    elseif address == prefix.."/event/timestamp" then
+        if currentEvent then
+            currentEvent.timestamp = value
+        end
+
+    elseif address == prefix.."/event/action" then
+        if currentEvent then
+            currentEvent.action = value
+        end
+    elseif address == prefix.."/event/fadetime" then
+        if currentEvent then
+            currentEvent.fadetime = value
+        end
+        -- NICHT sofort speichern! Das Event wird erst beim nächsten /event/name, /TCHelper/track oder /TCHelper/status gespeichert.
+
+    elseif address == prefix.."/status" then
+        -- Speichere letztes Event im aktuellen Track (z.B. am Ende der Übertragung)
+        if currentTrack and currentEvent then
+            table.insert(currentTrack.events, currentEvent)
+            currentEvent = nil
+        end
+         printTCHelperTable()
     end
 end
-local
 -----------------BACKROUND STUFF-------------------------------------------------------------
 function consoleMSG(x)
     reaper.ShowConsoleMsg(x..'\n')
@@ -476,6 +529,19 @@ function tableToString(tbl)
     table.insert(result, "}")
     return table.concat(result, "\n")
 end
+function formatFadeTime(data)
+    local string = data
+    string = string:gsub(",",".")
+    string = string:gsub("[^%d%.]", "")
+     local pre, post = string:match("^(%d*)%.?(%d*)$")
+    if pre == "" and post == "" then return "0.00" end
+    if post ~= "" then
+        post = post:sub(1,2)                  -- Maximal 2 Nachkommastellen
+        return pre .. "." .. (post .. "00"):sub(1,2)
+    else
+        return pre .. ".00"
+    end
+end
 local notesWarned = false
 function checkAndRestoreNotes()
     local anyWrong = false
@@ -489,7 +555,7 @@ function checkAndRestoreNotes()
                 local cueName = cue and cue.name or ""
                 local execoption = loadedtracks[trackGUID].execoption or ""
                 local cuenr = cue and cue.cuenr or ""
-                local fadetime = cue and cue.fadetime or ""
+                local fadetime = cue and cue.fadetime or "0"
                 local holdtime = cue and cue.holdtime or ""
 
                 local expectedNotes = ""
@@ -907,7 +973,7 @@ function getTrackContent()
                     local offset = reaper.GetProjectTimeOffset(0, false)
                     itemStart = itemStart + offset 
                     local itemLength = reaper.GetMediaItemInfo_Value(item, "D_LENGTH")
-                    local fadetime = itemword[iGC][4]:gsub("%D", "") or 0
+                    local fadetime = itemword[iGC][4]:gsub("[^%d%.]", "") or 0
                     local cueNr = itemword[iGC][3]:gsub("%D", "")
 
                     --loadedtracks[loadedTrackGUID[tGC]].cue[loadedItemGUID[iGC]] = {}
@@ -969,7 +1035,7 @@ end
 function Color.HSV(h, s, v, a)
     local r, g, b = ImGui.ColorConvertHSVtoRGB(h, s, v)
     return ImGui.ColorConvertDouble4ToU32(r, g, b, a or 1.0)
-  end
+end
 function getItemCount(GUID)
 
     if GUID == nil then
@@ -1496,29 +1562,119 @@ local function printOSCMessage(address, typetag, args)
         end
     end
 end
-local function printTCHelperTable()
-    local function printTable(tbl, indent)
-        indent = indent or ""
-        for k, v in pairs(tbl) do
-            if type(v) == "table" then
-                reaper.ShowConsoleMsg(indent .. tostring(k) .. ":\n")
-                printTable(v, indent .. "  ")
+function importTcDataToTCHelper()
+    if not tcData or not tcData.tracks or #tcData.tracks == 0 then
+        reaper.ShowMessageBox("Keine Daten im tcData-Table gefunden!", "Import", 0)
+        return
+    end
+
+    for _, track in ipairs(tcData.tracks) do
+        -- Button-Typ aus dem ersten Event bestimmen
+        local buttonName = btnNames[1] -- Default
+        if track.events and #track.events > 0 and track.events[1].action then
+            local action = track.events[1].action:lower()
+            if action:find("flash") then
+                buttonName = "Flash Button"
+            elseif action:find("temp") then
+                buttonName = "Temp Button"
             else
-                reaper.ShowConsoleMsg(indent .. tostring(k) .. ": " .. tostring(v) .. "\n")
+                buttonName = "Cue List"
+            end
+        end
+
+        -- Track-Parameter auslesen
+        local cueListName = track.name or "Imported Track"
+        local seqID = track.poolID or track.seqID -- poolID bevorzugen!
+        local tcID_ = track.tcID
+        local pageID = track.pageID
+        local execID = track.execID
+        local iconIndex = 1
+        for i, name in ipairs(btnNames) do
+            if name == buttonName then iconIndex = i break end
+        end
+
+        -- Track nur EINMAL anlegen!
+        local trackGUID = addTrack{
+            cueListName = cueListName,
+            seqID = seqID,
+            tcID = tcID_,
+            pageID = pageID,
+            execID = execID,
+            buttonName = buttonName,
+            iconIndex = iconIndex,
+            poolID = track.poolID
+        }
+
+        -- Events/Cues importieren (nur wenn vorhanden!)
+        if track.events and #track.events > 0 then
+            local i = 1
+            while i <= #track.events do
+                local event = track.events[i]
+                local nextEvent = track.events[i+1]
+                local cueName = event.name or "Imported Cue"
+                local timestamp = tonumber(event.timestamp) or 0
+                local fadetime = event.fadetime or fadetime
+                local holdtime = event.holdtime or holdtime
+                local cueNr = event.cueNr
+
+                local execoption = buttonName
+                if execoption == "Flash Button" or execoption == "Temp Button" then
+                    -- Suche Release-Event (nächstes Event mit gleichem Namen und "Release" im Action)
+                    if nextEvent and nextEvent.name == event.name and (nextEvent.action and nextEvent.action:lower():find("release")) then
+                        local startTime = tonumber(event.timestamp) or 0
+                        local endTime = tonumber(nextEvent.timestamp) or startTime
+                        local length = endTime - startTime
+                        if length < 0.01 then length = 1 end
+                        addItem(trackGUID, {
+                            name = cueName,
+                            timestamp = startTime,
+                            fadetime = fadetime,
+                            holdtime = length,
+                            cueNr = cueNr
+                        })
+                        i = i + 2
+                    else
+                        addItem(trackGUID, {
+                            name = cueName,
+                            timestamp = timestamp,
+                            fadetime = fadetime,
+                            holdtime = 1,
+                            cueNr = cueNr
+                        })
+                        i = i + 1
+                    end
+                else
+                    -- Normale GO-Cue
+                    addItem(trackGUID, {
+                        name = cueName,
+                        timestamp = timestamp,
+                        fadetime = fadetime,
+                        holdtime = holdtime,
+                        cueNr = cueNr
+                    })
+                    i = i + 1
+                end
             end
         end
     end
-    reaper.ShowConsoleMsg("TCHelper Table:\n")
-    printTable(tcData)
+
+    getTrackContent()
+    for k in pairs(tcData) do
+        tcData[k] = nil
+    end    
+    reaper.ShowMessageBox("Import aus tcData abgeschlossen!", "TCHelper", 0)
 end
 local function onOSCMessage(data)
     local address, typetag, args = parseOSC(data)
     if address then
+        --reaper.ShowConsoleMsg("Empfangen: " .. tostring(address) .. " | " .. tostring(args and args[1] or "") .. "\n")
         if args and #args > 0 then
             storeTCHelperInfo(address, args[1])
         end
-        --printOSCMessage(address, typetag, args)
-        printTCHelperTable()
+         if address == "/TCHelper/status" then
+            importTcDataToTCHelper()
+        end
+        printOSCMessage(address, typetag, args)
     else
         reaper.ShowConsoleMsg("[OSC RAW] " .. tostring(data) .. "\n")
     end
@@ -2121,6 +2277,7 @@ function connectionWindowMode3()
     if reaper.ImGui_Button(ctx, '       Load\nNetworkconfig', 121, 50) then
         hostIP = reaper.GetExtState('network','ip')
         consolePort = reaper.GetExtState('network','port')
+        listen_port = reaper.GetExtState('network','listen_port')
         prefix = reaper.GetExtState('network','prefix')
         datapoolName = reaper.GetExtState('basic','dataPoolName')
     end
@@ -2133,6 +2290,7 @@ function connectionWindowMode3()
         datapoolName = 'default'
         reaper.SetExtState('network','ip',hostIP,true)
         reaper.SetExtState('network','port',consolePort,true)
+        reaper.SetExtState('network','listen_port',listen_port,true)
         reaper.SetExtState('network','prefix',prefix,true)
         reaper.SetExtState('basic','dataPoolName',datapoolName,true)
     end
@@ -2708,7 +2866,8 @@ function CueItemWindow()
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, fadetime = reaper.ImGui_InputText(ctx, 'Fadetime ', fadetime)
     textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
-
+    
+    
     
     ---------------Add Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, xButtonsStart, toptextYoffset * 4.5)
@@ -2719,7 +2878,7 @@ function CueItemWindow()
             --consoleMSG('Check False')
         else
             --consoleMSG('Check true')
-            
+            fadetime = formatFadeTime(fadetime)
             addItem()
         end 
         ---------------Delete Item Button---------------------------------------------------------------
@@ -2795,6 +2954,7 @@ function TempItemWindow()
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, fadetime = reaper.ImGui_InputText(ctx, 'Fadetime ', fadetime)
     textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
+
     reaper.ImGui_SetNextItemWidth(ctx, standardTextwith)
     rv, holdtime = reaper.ImGui_InputText(ctx, 'Holdtime in sec', holdtime)
     textInputActive = reaper.ImGui_IsAnyItemActive(ctx)
@@ -2812,7 +2972,7 @@ function TempItemWindow()
             --consoleMSG('Check False')
         else
             --consoleMSG('Check true')
-
+        fadetime = formatFadeTime(fadetime)
         addItem()
         
         end
@@ -3081,7 +3241,7 @@ function openTrackWindow()
     return seqChecked
 end
 function openConnectionWindow()
-    local windowWidth, windowHeight = 525, 319
+    local windowWidth, windowHeight = 525, 370
     reaper.ImGui_SetNextWindowSize(ctx, windowWidth, windowHeight, reaper.ImGui_Cond_Always())
     local windowFlags = reaper.ImGui_WindowFlags_NoResize()
 
@@ -3098,117 +3258,98 @@ function openConnectionWindow()
     return networkChecked
 end
 ---------------ADD Track -------------------------------------------------------------------
-function addTrack()
-    -- Stelle sicher, dass trackShortcuts initialisiert ist
+function addTrack(params)
+    -- Sicherstellen, dass trackShortcuts initialisiert ist
     trackShortcuts = trackShortcuts or {}
 
-    local red = 0
-    local green = 0
-    local blue = 0
-    local buttonName = ''
-    local trackAmmount = reaper.GetNumTracks()
-    local newTrackID = trackAmmount + 1
-    local rv, script_path = isInstalledViaReapack()
-    local trackImage_path = script_path..dataFolder..iconFolder
-    local newTrackGUID = {}
-    local existingNames = {}
-    local existingSeqIDs = {}
-    local defaultShortcuts = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
-    -- Sammle bestehende CueList-Namen
-    local usedTracks = readTrackGUID('used')
-    for i = 1, #usedTracks do
-        local trackName = loadedtracks[usedTracks[i]].name
-        existingNames[trackName] = true
-    end
+    -- Parameter auslesen oder auf Standardwerte zurückgreifen
+    params = params or {}
+    local cueListName_ = params.cueListName or cueListName
+    -- Wenn poolID vorhanden (Import), nutze sie als seqID, sonst normalen seqID-Mechanismus
+    local seqID_ = params.poolID or params.seqID or seqID
+    local tcID_ = params.tcID or tcID
+    local pageID_ = params.pageID or pageID
+    local execID_ = params.execID or execID
+    local buttonName_ = params.buttonName or selectedBtnOption
+    local iconIndex = params.iconIndex or 1
+    local poolID_ = params.poolID -- für Notes
 
-    -- Sammle bestehende Sequence IDs
+    -- Farben und Icon bestimmen
+    local red, green, blue = 248, 177, 55 -- Standardfarbe
+    local selectedIcon = trackIcon.name[iconIndex]
+    if buttonName_ == btnNames[2] then red, green, blue = 0, 129, 43; selectedIcon = trackIcon.name[2] end
+    if buttonName_ == btnNames[3] then red, green, blue = 0, 153, 205; selectedIcon = trackIcon.name[3] end
+    if buttonName_ == btnNames[4] then red, green, blue = 208, 92, 120; selectedIcon = trackIcon.name[4] end
+    if buttonName_ == btnNames[5] then red, green, blue = 163, 198, 142; selectedIcon = trackIcon.name[5] end
+
+    -- Eindeutige seqID bestimmen (nur wenn kein Import/poolID)
+    local usedTracks = readTrackGUID('used')
+    local existingSeqIDs = {}
     for i = 1, #usedTracks do
         local trackSeqID = tonumber(loadedtracks[usedTracks[i]].seqID)
-        if trackSeqID then
-            existingSeqIDs[trackSeqID] = true
-        end
+        if trackSeqID then existingSeqIDs[trackSeqID] = true end
+    end
+    -- Nur hochzählen, wenn nicht Import (also poolID nicht gesetzt)
+    if not params.poolID then
+        while existingSeqIDs[seqID_] do seqID_ = seqID_ + 1 end
     end
 
-    -- Stelle sicher, dass die Sequence ID eindeutig ist
-    seqID = tonumber(reaper.GetExtState('trackconfig', 'seqId')) or 1
-    while existingSeqIDs[seqID] do
-        seqID = seqID + 1
-    end
-    reaper.SetExtState('trackconfig', 'seqId', tostring(seqID + 1), true)
-
-    reaper.InsertTrackAtIndex(newTrackID, true)
-    if selectedBtnOption == btnNames[1] then -------------CUELIST
-        selectedIcon = trackIcon.name[1]
-        buttonName = btnNames[1]
-        red = 248
-        green = 177
-        blue = 55
-    elseif selectedBtnOption == btnNames[2] then ---------FLASH
-        selectedIcon = trackIcon.name[2]
-        buttonName = btnNames[2]
-        red = 0
-        green = 129
-        blue = 43
-    elseif selectedBtnOption == btnNames[3] then ---------TEMP
-        selectedIcon = trackIcon.name[3]
-        buttonName = btnNames[3]
-        red = 0
-        green = 153
-        blue = 205
-    elseif selectedBtnOption == btnNames[4] then ---------TOP
-        selectedIcon = trackIcon.name[4]
-        buttonName = btnNames[4]
-        red = 208
-        green = 92
-        blue = 120
-    elseif selectedBtnOption == btnNames[5] then ---------TOP&RELEASE
-        selectedIcon = trackIcon.name[5]
-        buttonName = btnNames[5]
-        red = 163
-        green = 198
-        blue = 142
-    end
-
-    -- Stelle sicher, dass der CueList-Name eindeutig ist
-    cueListName = ensureUniqueSeqName(cueListName, existingNames)
-
+    -- Track-Name bauen
+    local trackName
     if MAmode == 'Mode 3' then
-        trackName = '|'..cueListName .. '|SeqID:' .. seqID ..'|'..buttonName .. '|TC ID:' .. tcID..'|'
+        trackName = '|'..cueListName_..'|SeqID:'..seqID_..'|'..buttonName_..'|TC ID:'..tcID_..'|'
     elseif MAmode == 'Mode 2' then
-        trackName = '|'..cueListName .. '|SeqID:' .. seqID ..'|'..buttonName .. '|TC ID:' .. tcID..'|Page:'..pageID..'|Exec ID:'..execID..'|'
+        trackName = '|'..cueListName_..'|SeqID:'..seqID_..'|'..buttonName_..'|TC ID:'..tcID_..'|Page:'..pageID_..'|Exec ID:'..execID_..'|'
     end
+
+    -- Track anlegen
+    local trackAmmount = reaper.GetNumTracks()
+    local newTrackID = trackAmmount + 1
+    reaper.InsertTrackAtIndex(newTrackID, true)
+    local rv, script_path = isInstalledViaReapack()
+    local trackImage_path = script_path..dataFolder..iconFolder
     local track = reaper.GetTrack(0, newTrackID - 1)
     local iconPath = trackImage_path .. selectedIcon
     reaper.GetSetMediaTrackInfo_String(track, 'P_NAME', trackName, true)
     reaper.GetSetMediaTrackInfo_String(track, 'P_ICON', iconPath, true)
     reaper.SetTrackColor(track, reaper.ColorToNative(red, green, blue))
 
-    newTrackGUID = reaper.GetTrackGUID(track)
+    -- PoolID in die Track-Notes schreiben (nur wenn vorhanden)
+    if poolID_ then
+        reaper.GetSetMediaTrackInfo_String(track, "P_NOTES", "poolID: " .. tostring(poolID_), true)
+    else
+        reaper.GetSetMediaTrackInfo_String(track, "P_NOTES", "", true)
+    end
+
+    -- Datenstruktur wie bisher
+    local newTrackGUID = reaper.GetTrackGUID(track)
     tracks[newTrackGUID] = {}
     tracks[newTrackGUID] = dummytrack
     tracks[newTrackGUID].id = newTrackGUID
     tracks[newTrackGUID].name = trackName
-    tracks[newTrackGUID].execID = execID
-    tracks[newTrackGUID].pageID = pageID
-    tracks[newTrackGUID].seqID = seqID
-    tracks[newTrackGUID].execoption = buttonName
+    tracks[newTrackGUID].execID = execID_
+    tracks[newTrackGUID].pageID = pageID_
+    tracks[newTrackGUID].seqID = seqID_
+    tracks[newTrackGUID].execoption = buttonName_
+    if poolID_ then tracks[newTrackGUID].poolID = poolID_ end
     SetupSendedDataTrack(newTrackGUID)
 
-    -- Füge den neuen Track zu trackShortcuts hinzu
-    local usedTracks = readTrackGUID('used')
+    -- Shortcuts wie bisher
+    local defaultShortcuts = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
+    usedTracks = readTrackGUID('used')
     for i = 1, #usedTracks, 1 do
-        if i <= 9 then
-            -- consoleMSG('usedTracks['..i..'] = ' .. usedTracks[i])
-            -- consoleMSG('newTrackGUID = ' .. newTrackGUID)
-            if newTrackGUID == usedTracks[i] then
-                trackShortcuts[newTrackGUID] = defaultShortcuts[i]
-                
-            end
+        if i <= 9 and newTrackGUID == usedTracks[i] then
+            trackShortcuts[newTrackGUID] = defaultShortcuts[i]
         end
     end
     saveShortcuts()
     getTrackContent()
     pendingLiveUpdate = true
+    if not params.poolID then
+        seqID = seqID_ + 1
+        reaper.SetExtState('trackconfig', 'seqId', tostring(seqID), true)
+    end
+    return newTrackGUID
 end
 function deleteTrack()
     --reaper.ShowConsoleMsg('\nDELETE TRACK START')
@@ -3379,102 +3520,79 @@ function deleteSelection()
     --reaper.ShowConsoleMsg('\n--DELETE ENDED--')
 end
 ---------------ADD Item --------------------------------------------------------------------
-function addItem(trackGUID)
-    local definedTrackGUID = trackGUID
+function addItem(trackGUID, params)
+    params = params or {}
+    local definedTrackGUID = trackGUID or params.trackGUID or readTrackGUID('selected')
     getTrackContent()
-    if definedTrackGUID == nil then
+    if not definedTrackGUID then
         noTrackError()
-    end
-    local retval
-    local selected_trk = reaper.GetSelectedTrack(0, 0)
-    trackGUID = definedTrackGUID or readTrackGUID('selected') -- Verwende den übergebenen Track oder den ausgewählten Track
-    local playPos = reaper.GetPlayPosition()
-    local cursorpos = reaper.GetCursorPosition()
-    local media_item = nil
-    local itemName = 'ph'
-    local pressNr = cueNr
-    local itemcount = getItemCount()
-
-    if definedTrackGUID == nil then
-        if not selected_trk then
-            reaper.ShowMessageBox("No valid track selected or provided.", "Error", 0)
-            return
-        end
+        return
     end
 
-    local track = reaper.BR_GetMediaTrackByGUID(0, trackGUID)
+    local track = reaper.BR_GetMediaTrackByGUID(0, definedTrackGUID)
     if not track then
         reaper.ShowMessageBox("Track not found.", "Error", 0)
         return
     end
 
-    -- Berechne die aktuelle Anzahl der Cues im Ziel-Track
-    local targetTrackGUID = trackGUID
-    local targetTrack = reaper.BR_GetMediaTrackByGUID(0, targetTrackGUID)
-    local targetItemCount = reaper.CountTrackMediaItems(targetTrack)
+    local targetItemCount = reaper.CountTrackMediaItems(track)
+    local cueNr_ = params.cueNr or (targetItemCount + 1)
+    local insertTime = params.timestamp
+    if not insertTime then
+        local playState = reaper.GetPlayState()
+        insertTime = (playState == 1) and reaper.GetPlayPosition() or reaper.GetCursorPosition()
+    end
 
-    -- Setze die Cue-Nummer basierend auf der Anzahl der bestehenden Cues
-    cueNr = targetItemCount + 1
+    local execoption = params.action or (loadedtracks[definedTrackGUID] and loadedtracks[definedTrackGUID].execoption) or "Cue List"
+ local cueName = params.name or inputCueName or ("Cue - " .. cueNr_)
+    local fade = params.fadetime or fadetime
+    local hold = params.holdtime or holdtime
 
-    media_item = reaper.AddMediaItemToTrack(track)
-    local insertTime = -1
-    local playState = reaper.GetPlayState()
-    if playState == 1 then
-        insertTime = playPos
+    -- Item-Name bauen
+    local itemName
+    if execoption == "Cue List" then
+        itemName = "|" .. cueName .. "|\n|" .. execoption .. "|\n|Cue: " .. cueNr_ .. "|\n|Fadetime: " .. fade .. "|"
+    elseif execoption == "Flash Button" or execoption == "Temp Button" then
+        itemName = "|" .. cueName .. "|\n|" .. execoption .. "|\n|Press: " .. cueNr_ .. "|\n|Fadetime: " .. fade .. "|\n|Hold: " .. hold .. "|"
     else
-        insertTime = cursorpos
+        itemName = "|" .. cueName .. "|\n|" .. execoption .. "|"
     end
-    if definedTrackGUID ~= nil then -- Name definition bei Shortcut benutzung
-        if loadedtracks[definedTrackGUID].execoption == 'Cue List' then
-            selectedOption = 'Cue List'
-        elseif loadedtracks[definedTrackGUID].execoption == 'Flash Button' then
-            selectedOption = 'Flash Button'
-        elseif loadedtracks[definedTrackGUID].execoption == 'Temp Button' then
-            selectedOption = 'Temp Button'
-        end
-        local itemammount = getItemCount(definedTrackGUID)
-        inputCueName = 'Cue - '..itemammount
-    end
-    if selectedOption == 'Cue List' then 
-        itemName = '|' .. inputCueName .. '|\n|' .. loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. cueNr .. '|\n|Fadetime: ' .. fadetime .. '|'
-    elseif selectedOption == 'Flash Button' or 'Temp Button' then
-        itemName = '|' .. inputCueName .. '|\n|' .. loadedtracks[trackGUID].execoption .. '|\n|Press: ' .. pressNr .. '|\n|Fadetime: ' .. fadetime .. '|\n|Hold: ' .. holdtime .. '|'
-        pressNr = pressNr + 1
-    end
-
+    -- Media Item anlegen
+    local media_item = reaper.AddMediaItemToTrack(track)
     reaper.SetMediaItemInfo_Value(media_item, "D_POSITION", insertTime)
-    if selectedOption == 'Cuelist' then
-        reaper.SetMediaItemInfo_Value(media_item, "D_LENGTH", 10)
-    elseif selectedOption == 'Flash Button' or 'Temp Button' then
-        local holdnum = tonumber(holdtime)
-        local fadenum = tonumber(fadetime)
-        local endTime = holdnum + fadenum
-        reaper.SetMediaItemInfo_Value(media_item, "D_LENGTH", holdnum)
+    
+    -- Länge setzen (immer hold für Temp/Flash, sonst 1)
+    if execoption == "Cue List" then
+        reaper.SetMediaItemInfo_Value(media_item, "D_LENGTH", 1)
+    elseif execoption == "Flash Button" or execoption == "Temp Button" then
+        reaper.SetMediaItemInfo_Value(media_item, "D_LENGTH", tonumber(hold) or 1)
     end
-
-    if track then
-        local itemCount = reaper.CountTrackMediaItems(track)
-        if itemCount > 0 then
-            reaper.GetSetMediaItemInfo_String(media_item, "P_NOTES", itemName, true)
-        end
-    end
+    
+    --consoleMSG('AddItem Name: ' .. itemName)
+    reaper.GetSetMediaItemInfo_String(media_item, "P_NOTES", itemName, true)
 
     local newCueGUID = reaper.BR_GetMediaItemGUID(media_item)
-    if tracks[trackGUID] == nil then
-        tracks[trackGUID] = {}
-        tracks[trackGUID] = dummytrack
+    if not tracks[definedTrackGUID] then
+        tracks[definedTrackGUID] = copy3(dummytrack)
     end
-    if tracks[trackGUID].cue[newCueGUID] == nil then
-        tracks[trackGUID].cue[newCueGUID] = {}
+    if not tracks[definedTrackGUID].cue then
+        tracks[definedTrackGUID].cue = {}
     end
-    tracks[trackGUID].cue[newCueGUID].id = newCueGUID
-    tracks[trackGUID].cue[newCueGUID].name = itemName
-    tracks[trackGUID].cue[newCueGUID].fadetime = fadetime
-    SetupSendedDataItem(trackGUID, newCueGUID)
+    if not tracks[definedTrackGUID].cue[newCueGUID] then
+        tracks[definedTrackGUID].cue[newCueGUID] = {}
+    end
+    tracks[definedTrackGUID].cue[newCueGUID].id = newCueGUID
+    tracks[definedTrackGUID].cue[newCueGUID].name = cueName
+    tracks[definedTrackGUID].cue[newCueGUID].fadetime = fade
+    tracks[definedTrackGUID].cue[newCueGUID].holdtime = hold
+    tracks[definedTrackGUID].cue[newCueGUID].cuenr = cueNr_
+    tracks[definedTrackGUID].cue[newCueGUID].itemStart = insertTime
+    tracks[definedTrackGUID].cue[newCueGUID].itemEnd = insertTime + (tonumber(hold) or 1)
+
+    SetupSendedDataItem(definedTrackGUID, newCueGUID)
     renumberItems()
     if trackShortcutsSafed == false then
         initializeTrackShortcuts()
-
     end
     getTrackContent()
     eventAdded = true
@@ -3513,7 +3631,7 @@ function renameItems()
     for i = 1, cueAmmount, 1 do
         mediaItem[i] = reaper.BR_GetMediaItemByGUID(0, cueGUIDs[i])
     end
-    for i = 1, cueAmmount, 1 do
+      for i = 1, cueAmmount, 1 do
         local inputName
         local inputFade
         if isTempOrFlash and newNameForAll then
@@ -3522,9 +3640,9 @@ function renameItems()
             inputName = replaceSpecialCharacters(NewCueNames[i])
         end
         if isTempOrFlash and newFadeForAll then
-            inputFade = newFadeForAll
+            inputFade = formatFadeTime(newFadeForAll)
         else
-            inputFade = NewFadeTimes[i]
+            inputFade = formatFadeTime(NewFadeTimes[i])
         end
         itemName = '|' ..inputName..'|\n|' ..loadedtracks[trackGUID].execoption .. '|\n|Cue: ' .. i .. '|\n|Fadetime: ' ..inputFade .. '|'
         reaper.GetSetMediaItemInfo_String(mediaItem[i], "P_NOTES", itemName, true)
@@ -3898,6 +4016,10 @@ function setOSCcommand()
                 local releaseBtnTime = loadedtracks[usedTrackGUID[i]].cue[cueGUID[i][j]].itemEnd
                 OscCommands.cue.storeCueCmd[i][j] =              'Store Seq ' ..loadedtracks[usedTrackGUID[i]].seqID.. ' Cue 1  /m'
                 OscCommands.cue.labelCueCmd[i][j] =              'Label Seq ' ..loadedtracks[usedTrackGUID[i]].seqID ..' Cue 1 "'           ..loadedtracks[usedTrackGUID[i]].cue[cueGUID[i][j]].name .. '"/o'
+                
+
+
+
                 OscCommands.cue.fadeCueCmd[i][j] =               'Set Seq '   ..loadedtracks[usedTrackGUID[i]].seqID ..' Cue 1 CueFade '    ..loadedtracks[usedTrackGUID[i]].cue[cueGUID[i][j]].fadetime
                 OscCommands.timecode.tcStoreCueCmd[i][j] =       'Store TC '  ..tcID ..'.1.'.. i .. '.1.1.'   ..oncount
                 OscCommands.timecode.tcTimeCueCmd[i][j] =        'Set TC '    ..tcID ..'.1.' ..i .. '.1.1.'   ..oncount ..' Property "time" '             ..loadedtracks[usedTrackGUID[i]].cue[cueGUID[i][j]].itemStart
