@@ -1892,9 +1892,9 @@ local function TCHelper_Window()
                     old_itemcount = itemcount
                 end
                 if selectedOption == 'Cue List' then
-                    CueItemWindow()
+                    SingleActionWindow()
                 elseif selectedOption == 'Flash Button' or 'Temp Button' then
-                    TempItemWindow()
+                    DoubleActionWindow()
                 end
             end
             
@@ -2834,7 +2834,7 @@ function CueListSetupWindow()
 end
 
 ---------------ADD CUE WINDOW---------------------------------------------------------------
-function CueItemWindow()
+function SingleActionWindow()
     local buttonHeight = 50
     local buttonWidth = 80
     local xButtonsStart = 380
@@ -2929,7 +2929,7 @@ function CueItemWindow()
     reaper.ImGui_SetCursorPos(ctx, 610, toptextYoffset + 55)
     ShowFocusHint()
 end
-function TempItemWindow()
+function DoubleActionWindow()
     local buttonHeight = 50
     local buttonWidth = 80
     local xButtonsStart = 380
