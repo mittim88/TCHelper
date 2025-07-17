@@ -1,24 +1,8 @@
+local script_path = debug.getinfo(1, 'S').source:match([[^@?(.*[\/])[^\/]-$]])
+package.path = script_path .. "?.lua;" .. package.path
+local helper = require('helper')
 local shortcuts = {}
-function shortcuts.tableToString(tbl)
-    local result = {}
-    local function serialize(tbl, indent)
-        for k, v in pairs(tbl) do
-            local key = type(k) == "string" and string.format("%q", k) or tostring(k)
-            if type(v) == "table" then
-                table.insert(result, string.format("%s[%s] = {", indent, key))
-                serialize(v, indent .. "  ")
-                table.insert(result, string.format("%s},", indent))
-            else
-                local value = type(v) == "string" and string.format("%q", v) or tostring(v)
-                table.insert(result, string.format("%s[%s] = %s,", indent, key, value))
-            end
-        end
-    end
-    table.insert(result, "{")
-    serialize(tbl, "  ")
-    table.insert(result, "}")
-    return table.concat(result, "\n")
-end
+local projectData = require('projectData')
 function shortcuts.checkShortcuts()
     trackShortcuts = trackShortcuts or {}
     -- Verhindere das Erstellen von Events, wenn ein Shortcut zugewiesen wird
@@ -27,7 +11,7 @@ function shortcuts.checkShortcuts()
     -- Initialisiere globalShortcuts, falls sie nicht existiert
     globalShortcuts = globalShortcuts or { playPause = "P", createCue = "N" }
     -- Track-Shortcuts prüfen
-    local usedTracks = readTrackGUID("used")
+    local usedTracks = projectData.readTrackGUID("used")
     for _, trackGUID in ipairs(usedTracks) do
         local assignedKey = trackShortcuts[trackGUID]
         if assignedKey then
@@ -39,7 +23,6 @@ function shortcuts.checkShortcuts()
             end
         end
     end
-
     -- Shortcut für Play/Pause
     if globalShortcuts.playPause then
         local playPauseKeyFunc = reaper["ImGui_Key_" .. globalShortcuts.playPause]
@@ -58,7 +41,7 @@ function shortcuts.checkShortcuts()
 end
 function shortcuts.saveShortcuts()
     trackShortcuts = trackShortcuts or {}
-    local serializedShortcuts = shortcuts.tableToString(trackShortcuts)
+    local serializedShortcuts = helper.tableToString(trackShortcuts)
     reaper.SetExtState("TCHelper", "TrackShortcuts", serializedShortcuts, true)
     reaper.SetExtState("TCHelper", "trackShortcutsSafed", "true", true)
 end
@@ -71,7 +54,7 @@ function shortcuts.loadShortcuts()
 
     if serializedShortcuts and serializedShortcuts ~= "" and userDefined == "true" then
         -- Benutzer hat eigene Shortcuts gespeichert → lade diese
-        trackShortcuts = stringToTable(serializedShortcuts)
+        trackShortcuts = helper.stringToTable(serializedShortcuts)
     else
         -- Noch keine eigenen Shortcuts gespeichert → Standard-Shortcuts 1-9 für die ersten 9 used Tracks
         local defaultKeys = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
@@ -90,7 +73,7 @@ function shortcuts.initializeTrackShortcuts()
     --trackShortcuts = trackShortcuts or {}
     if trackShortcutsSafed == false or trackShortcutsSafed == 'false' then
         -- Hole die GUIDs der "used" Tracks
-        local usedTracks = readTrackGUID("used")
+        local usedTracks = projectData.readTrackGUID("used")
         local defaultKeys = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
     
         -- Weisen Sie den ersten 9 "used" Tracks die Shortcuts 1-9 zu
@@ -105,7 +88,7 @@ function shortcuts.initializeTrackShortcuts()
     end
 end
 function shortcuts.saveGlobalShortcuts()
-    local serializedShortcuts = shortcuts.tableToString(globalShortcuts)
+    local serializedShortcuts = helper.tableToString(globalShortcuts)
     reaper.SetExtState("TCHelper", "GlobalShortcuts", serializedShortcuts, true)
     reaper.SetExtState("TCHelper", "globalShortcutsSafed", "true", true)
 end
@@ -117,7 +100,7 @@ function shortcuts.loadGlobalShortcuts()
 
     local serializedShortcuts = reaper.GetExtState("TCHelper", "GlobalShortcuts")
     if serializedShortcuts and serializedShortcuts ~= "" then
-        globalShortcuts = stringToTable(serializedShortcuts)
+        globalShortcuts = helper.stringToTable(serializedShortcuts)
     else
         -- Standard-Shortcuts definieren, wenn keine vorhanden sind
         globalShortcuts = { playPause = "Space", createCue = "." }

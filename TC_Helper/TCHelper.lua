@@ -15,12 +15,16 @@
 --   /TC_Helper/data/images/*.png
 --   /TC_Helper/data/logo/*.png
 --   /TC_Helper/data/projectTemplate/*.RPP
+--   /TCHelper/format.lua
+--   /TCHelper/shortcuts.lua
 
 ----------Require ext Files---------------------------------------------------
 local script_path = debug.getinfo(1, 'S').source:match([[^@?(.*[\/])[^\/]-$]])
 package.path = script_path .. "?.lua;" .. package.path
 local format = require('format')
 local shortcuts = require('shortcuts')
+local helper = require('helper')
+local projectData = require('projectData')
 --------------------------------------------------------------------------------
 local version = '3.4.4'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
@@ -70,7 +74,6 @@ local holdtime = '1.0'
 local inputCueName = 'empty'
 local cueNr = 1
 local selectedBtnOption = ''
-local selectedTrackOption = ''
 local popups = {}
 local standardTextwith = 50
 local btnNames = { 
@@ -81,7 +84,6 @@ local btnNames = {
     --'Top&Release' 
 }
 local selOptions = {'selected Track', 'all Tracks'}
-local eventTime = '00:00:00:00'
 local cursor = 0
 local selectedOption = 'empty'
 local liveupdatebox = false
@@ -91,7 +93,6 @@ local cuesChecked = false
 local seqChecked = false
 local networkChecked = false
 local shortcutsChecked = false
-local textInputActive = false
 local inputCueNameFieldActive = false
 local dummyIPstring = '--Enter console IP--'
 local tracks = {}
@@ -99,14 +100,11 @@ local loadedtracks = {}
 local sendedData = {}
 local clipboard = {}
 local previousTrackGUID = nil
-local oldusedTracks = nil
 local eventAdded = false 
-local eventRenamed = false
 local mainDocked = false
 local cueDocked = false
 local trackDocked = false
 local firstopened = false
-local startup = false
 local mainDockID = tonumber(reaper.GetExtState("TCHelper", "MainDockID")) or 0
 local cueDockID = tonumber(reaper.GetExtState("TCHelper", "CueDockID")) or 0
 local trackDockID = tonumber(reaper.GetExtState("TCHelper", "TrackDockID")) or 0
@@ -118,7 +116,6 @@ local aboutWindowOpen = false
 local openNewVersionWindow = false
 local openOldVersionWindow = false
 --extData--------------------------------------------------------------------------------------------
-local selectedIcon = ''
 local dataFolder = 'data/'
 local iconFolder = 'images/'
 local logoFolder = 'logo/'
@@ -204,9 +201,9 @@ widgets.plots = {
   }
 ------Setup SendedData Dummy Table
 function InitiateSendedData()
-    local usedTracks = readTrackGUID('used')
+    local usedTracks = projectData.readTrackGUID('used')
     for i = 1, #usedTracks, 1 do
-      local itemGuid = readItemGUID(usedTracks[i])
+      local itemGuid = projectData.readItemGUID(usedTracks[i])
       local trackID = reaper.BR_GetMediaTrackByGUID(0, usedTracks[i])
       local itemAmmount = reaper.CountTrackMediaItems(trackID)
       SetupSendedDataTrack(usedTracks[i])
@@ -433,7 +430,7 @@ local function parseOSC(data)
     end
     return address, typetag, args
 end
-local function storeTCHelperInfo(address, value)
+local function storeConsoleData(address, value)
     
     local prefix = "/TCHelper"
     --reaper.ShowConsoleMsg("OSC: " .. tostring(address) .. " = " .. tostring(value) .. "\n")
@@ -497,9 +494,6 @@ local function storeTCHelperInfo(address, value)
     end
 end
 -----------------BACKROUND STUFF-------------------------------------------------------------
-function consoleMSG(x)
-    reaper.ShowConsoleMsg(x..'\n')
-end
 function fetchXML(url)
     local response = {}
     local _, code = http_socket.http.request{
@@ -521,9 +515,9 @@ end
 local notesWarned = false
 function checkAndRestoreNotes()
     local anyWrong = false
-    local usedTracks = readTrackGUID('used')
+    local usedTracks = projectData.readTrackGUID('used')
     for _, trackGUID in ipairs(usedTracks) do
-        local itemGUIDs = readItemGUID(trackGUID)
+        local itemGUIDs = projectData.readItemGUID(trackGUID)
         for _, itemGUID in ipairs(itemGUIDs) do
             local item = reaper.BR_GetMediaItemByGUID(0, itemGUID)
             if item and loadedtracks[trackGUID] and loadedtracks[trackGUID].cue and loadedtracks[trackGUID].cue[itemGUID] then
@@ -564,14 +558,6 @@ function checkAndRestoreNotes()
         notesWarned = true
     elseif not anyWrong then
         notesWarned = false
-    end
-end
-function stringToTable(str)
-    local func = load("return " .. str)
-    if func then
-        return func()
-    else
-        return nil
     end
 end
 function checkForNewVersion(currentVersion, xmlContent)
@@ -668,40 +654,14 @@ function drawCenteredButton(ctx, text, buttonWidth, buttonHeight)
 
     return false
 end
-function defineBash()
-    local platform = reaper.GetOS()
-    local system = 'empty'
-    local bash = 'empty'
-    local winBash = 'cmd.exe /C '
-    local macBash = "/bin/sh -c "
-    if platform == 'Win64' then
-        bash = winBash
-        system = 'win'
-    elseif platform == 'Win32' then
-        bash = winBash
-        system = 'win'
-    elseif platform == 'OSX32' then
-        bash = macBash
-        system = 'macOS'
-    elseif platform == 'OSX64' then
-        bash = macBash
-        system = 'macOS'
-    elseif platform == 'macOS-arm64' then
-        bash = macBash
-        system = 'macOS'
-    else
-        consoleMSG('NO SUPPORTED OS')
-    end
-return bash,system
-end
 function checkDuplicateCueNames()
     getTrackContent()
-    local trackGUID = readTrackGUID('selected')
+    local trackGUID = projectData.readTrackGUID('selected')
     local nameCount = {}
     
     local execoption = loadedtracks[trackGUID].execoption or 'unknown'
     if execoption == 'Cue List' then
-        local itemGUIDs = readItemGUID(trackGUID)
+        local itemGUIDs = projectData.readItemGUID(trackGUID)
         for j = 1, #itemGUIDs do
             local track = loadedtracks[trackGUID]
             if track and track.cue and track.cue[itemGUIDs[j]] then
@@ -723,16 +683,11 @@ function checkDuplicateCueNames()
     end
     getTrackContent()
 end
-function sleep (a) 
-    local sec = tonumber(os.clock() + a); 
-    while (os.clock() < sec) do 
-    end 
-end
 function checkSeqInfo()
     local seqCheckname = {}
     local seqCheckID = {}
     local check = false
-    local usedTracks = readTrackGUID('used')
+    local usedTracks = projectData.readTrackGUID('used')
 
     for i = 1, #usedTracks, 1 do
         seqCheckname[i] = loadedtracks[usedTracks[i]].name
@@ -755,93 +710,13 @@ function checkSeqInfo()
     end
     return check
 end
-function readTrackGUID(token)
-    local tracknum = reaper.GetNumTracks(0)
-    local trackcount = 1
-    local trackGUID = {}
-    local check = '|'
-    if token == 'all' then
-        --reaper.ShowConsoleMsg('\nall')
-        for i = 0, tracknum - 1 do
-            local trackID = reaper.GetTrack(0, i)
-            local loadedGUID = reaper.GetTrackGUID(trackID)
-            trackGUID[trackcount] = loadedGUID
-            trackcount = trackcount + 1
-        end
-        return trackGUID 
-    elseif token == 'used' then
-
-        for i = 0, tracknum - 1 do
-            local trackID = reaper.GetTrack(0, i)
-            local retval, name = reaper.GetTrackName(trackID)
-            local checkname = string.sub(name, 1, 1) --hier wird das erste Zeichen vom TrackLabel ausgelesen
-            local trackIcon = ''
-            local rv = ''
-            local trackIcon = ''
-            rv, trackIcon = reaper.GetSetMediaTrackInfo_String(trackID, 'P_ICON', trackIcon, false)
-            if rv == true then
-                if checkname == check then --WENN das erste Zeichen dem Check aus Zeile 94 entspricht UND ein Icon an den Track angefügt ist wird der Track ausgelesen und im Daten Table gespeichert
-                    local loadedGUID = reaper.GetTrackGUID(trackID)
-                    trackGUID[trackcount] = loadedGUID
-                    trackcount = trackcount + 1
-                else
-                    i = i + 1
-                end
-            else
-                i = i + 1
-            end
-        end
-        return trackGUID 
-    elseif token == 'selected' then
-
-        --reaper.ShowConsoleMsg('\nseleceted')
-        local selectedTrack = reaper.GetSelectedTrack(0, 0)
-        if selectedTrack ~= nil then
-
-            local loadedGUID = reaper.GetTrackGUID(selectedTrack)
-            trackGUID[1] = loadedGUID
-        else
-            if track1 ~= nil then
-                local track1 = reaper.GetTrack(0, 0)
-                local loadedGUID = reaper.GetTrackGUID(track1)
-                trackGUID[1] = loadedGUID
-                noTrackError()  
-            end
-        end
-        return trackGUID[1]
-    end
-end
-function readItemGUID(trackGUID)
-    local trackID = reaper.BR_GetMediaTrackByGUID(0, trackGUID)
-    if trackID ~= nil then
-        local itemAmmount = reaper.CountTrackMediaItems(trackID)
-        local itemGUID = {}
-        local count = 1
-        for i = 0, itemAmmount - 1, 1 do
-            local mediaItem = reaper.GetTrackMediaItem(trackID, i)
-            if mediaItem ~= nil then
-                local rv, loadedGUID = reaper.GetSetMediaItemInfo_String(mediaItem, "GUID", "", false)
-                itemGUID[count] = loadedGUID
-                count = count + 1
-        
-            end
-            --reaper.ShowConsoleMsg('\nREADITEMGUID FUNCTION'..itemGUID[count])
-        end
-        return itemGUID
-    end
-end
-function getSelectedItemGUID()
-    local selectedItem = reaper.GetSelectedMediaItem(0, 0) -- Get the first selected item
-    local GUID = reaper.BR_GetMediaItemGUID(selectedItem)
-    return GUID
-end
 function getCursorPosition()
     cursor = reaper.GetCursorContext2(true)
 end
 function getSelectedOption()
     local oldTrack = 'empty'
     if cursor == 1 then
-        local selectedTrack = readTrackGUID('selected')
+        local selectedTrack = projectData.readTrackGUID('selected')
         if loadedtracks[selectedTrack] ~= nil then
             if oldTrack ~= selectedTrack then
                 if loadedtracks[selectedTrack].execoption == 'Cue List' then
@@ -959,10 +834,10 @@ function getTrackContent()
     end
 end
 function checkItemStatus()
-    local trackGUID = readTrackGUID('used')
+    local trackGUID = projectData.readTrackGUID('used')
     for i = 1, #trackGUID, 1 do
         if sendedData[trackGUID[i]] and sendedData[trackGUID[i]].cue then
-            local itemGUID = readItemGUID(trackGUID[i])
+            local itemGUID = projectData.readItemGUID(trackGUID[i])
             for j = 1, #itemGUID do
                 if sendedData[trackGUID[i]].cue[itemGUID[j]] and sendedData[trackGUID[i]].cue[itemGUID[j]].id == nil then
                     SetupSendedDataItem(trackGUID[i], itemGUID[j])
@@ -1020,29 +895,6 @@ function getLongestTrackTime()
     local longestLength = reaper.GetProjectLength(0)
     return longestLength
 end
-function copy3(obj, seen)
-
-    -- Handle non-tables and previously-seen tables.
-
-    if type(obj) ~= 'table' then return obj end
-
-    if seen and seen[obj] then return seen[obj] end
-
-
-
-  -- New table; mark it as seen and copy recursively.
-
-  local s = seen or {}
-
-  local res = {}
-
-  s[obj] = res
-
-  for k, v in pairs(obj) do res[copy3(k, s)] = copy3(v, s) end
-
-  return setmetatable(res, getmetatable(obj))
-
-end
 function getFirstTouchedMediaItem()
     local numSelectedItems = reaper.CountSelectedMediaItems(0)
     if numSelectedItems > 0 then
@@ -1058,7 +910,7 @@ function getFirstTouchedMediaItem()
     return nil -- No touched items found
 end
 function getCueNames()
-    local trackID = readTrackGUID('selected')
+    local trackID = projectData.readTrackGUID('selected')
     local selectedTrack = 'noTrack'
     selectedTrack = reaper.GetSelectedTrack(0, 0)
     local itemCount = 0
@@ -1068,7 +920,7 @@ function getCueNames()
         itemCount = 0
     else
         itemCount = reaper.CountTrackMediaItems(selectedTrack)
-        cueGUIDs = readItemGUID(trackID)
+        cueGUIDs = projectData.readItemGUID(trackID)
     end
     local oldCueName = {}
     for i = 1, itemCount, 1 do
@@ -1082,14 +934,14 @@ function getCueNames()
 end
 function getSeqNames () 
     local newSeqNames = {}
-    local usedTracks = readTrackGUID('used')
+    local usedTracks = projectData.readTrackGUID('used')
     for i = 1, #usedTracks, 1 do
         newSeqNames[i] = loadedtracks[usedTracks[i]].name
     end
     return newSeqNames
 end
 function getFadeTimes()
-    local trackID = readTrackGUID('selected')
+    local trackID = projectData.readTrackGUID('selected')
     local selectedTrack = 'noTrack'
     selectedTrack = reaper.GetSelectedTrack(0, 0)
     local itemCount = 0
@@ -1099,7 +951,7 @@ function getFadeTimes()
         itemCount = 0
     else
         itemCount = reaper.CountTrackMediaItems(selectedTrack)
-        cueGUIDs = readItemGUID(trackID)
+        cueGUIDs = projectData.readItemGUID(trackID)
     end
     local oldFadeTime = {}
     for i = 1, itemCount, 1 do
@@ -1125,8 +977,8 @@ function ensureUniqueSeqName(seqName, existingNames)
     return uniqueName
 end
 function checkTCHelperTracks()
-    local selTrack = readTrackGUID('selected')
-    local tcHelperTracks = readTrackGUID('used')
+    local selTrack = projectData.readTrackGUID('selected')
+    local tcHelperTracks = projectData.readTrackGUID('used')
     local trackCheck = false
     if selTrack == nil then
         --reaper.ShowMessageBox('\nNo Track selected\nPlease select your desired Track', 'Error', 0)
@@ -1177,7 +1029,7 @@ function checkTCHelperTracks()
 end
 function mergeDataOption()
     if loadProjectMarker == false then
-        sendedData = copy3(loadedtracks)
+        sendedData = helper.copy3(loadedtracks)
         loadProjectMarker = true
     end
     checkItemStatus()
@@ -1366,7 +1218,7 @@ function copyFile(source, destination)
 end
 function updateInputCueName(targetTrackGUID)
     -- Verwende den übergebenen TrackGUID oder den aktuell ausgewählten Track
-    local trackGUID = targetTrackGUID or readTrackGUID('selected')
+    local trackGUID = targetTrackGUID or projectData.readTrackGUID('selected')
     if not trackGUID then
         inputCueName = 'empty'
         cueNr = 1
@@ -1522,7 +1374,7 @@ local function onOSCMessage(data)
     if address then
         --reaper.ShowConsoleMsg("Empfangen: " .. tostring(address) .. " | " .. tostring(args and args[1] or "") .. "\n")
         if args and #args > 0 then
-            storeTCHelperInfo(address, args[1])
+            storeConsoleData(address, args[1])
         end
          if address == "/TCHelper/status" then
             importTcDataToTCHelper()
@@ -1548,14 +1400,14 @@ function selectToolsmaller()
     local trackAmmount = 0
     local cursorposition = reaper.GetCursorPosition()
     if selectedTrackOption == 'selected Track' then
-        trackGUID[1] = readTrackGUID('selected')
+        trackGUID[1] = projectData.readTrackGUID('selected')
         trackAmmount = 1
     elseif selectedTrackOption == 'all Tracks' then
-        trackGUID = readTrackGUID('used')        
+        trackGUID = projectData.readTrackGUID('used')        
         trackAmmount = #trackGUID
     end
     for i = 1, trackAmmount do
-        local itemGUID = readItemGUID(trackGUID[i])
+        local itemGUID = projectData.readItemGUID(trackGUID[i])
         for j = 1, #itemGUID, 1 do
             if loadedtracks[trackGUID[i]].cue[itemGUID[j]].itemStart <= cursorposition then
                 local itemhandle = reaper.BR_GetMediaItemByGUID( 0, loadedtracks[trackGUID[i]].cue[itemGUID[j]].id)
@@ -1570,14 +1422,14 @@ function selectToolhigher()
     local trackAmmount = 0
     local cursorposition = reaper.GetCursorPosition()
     if selectedTrackOption == 'selected Track' then
-        trackGUID[1] = readTrackGUID('selected')
+        trackGUID[1] = projectData.readTrackGUID('selected')
         trackAmmount = 1
     elseif selectedTrackOption == 'all Tracks' then
-        trackGUID = readTrackGUID('used')        
+        trackGUID = projectData.readTrackGUID('used')        
         trackAmmount = #trackGUID
     end
     for i = 1, trackAmmount do
-        local itemGUID = readItemGUID(trackGUID[i])
+        local itemGUID = projectData.readItemGUID(trackGUID[i])
         for j = 1, #itemGUID, 1 do
             if loadedtracks[trackGUID[i]].cue[itemGUID[j]].itemStart >= cursorposition then
                 local itemhandle = reaper.BR_GetMediaItemByGUID( 0, loadedtracks[trackGUID[i]].cue[itemGUID[j]].id)
@@ -1592,14 +1444,14 @@ function selectToolall()
     local trackAmmount = 0
     local cursorposition = reaper.GetCursorPosition()
     if selectedTrackOption == 'selected Track' then
-        trackGUID[1] = readTrackGUID('selected')
+        trackGUID[1] = projectData.readTrackGUID('selected')
         trackAmmount = 1
     elseif selectedTrackOption == 'all Tracks' then
-        trackGUID = readTrackGUID('used')        
+        trackGUID = projectData.readTrackGUID('used')        
         trackAmmount = #trackGUID
     end
     for i = 1, trackAmmount do
-        local itemGUID = readItemGUID(trackGUID[i])
+        local itemGUID = projectData.readItemGUID(trackGUID[i])
         for j = 1, #itemGUID, 1 do            
             local itemhandle = reaper.BR_GetMediaItemByGUID( 0, loadedtracks[trackGUID[i]].cue[itemGUID[j]].id)
             reaper.SetMediaItemSelected(itemhandle, true) -- Select the item
@@ -1641,7 +1493,7 @@ local function TCHelper_Window()
             if ImGui.MenuItem(ctx, 'Cues') then
                 local validTracks = checkTCHelperTracks()
                 if validTracks == true then
-                    local selTrack = readTrackGUID('selected')
+                    local selTrack = projectData.readTrackGUID('selected')
                     seqName = loadedtracks[selTrack].name
                     NewCueNames = getCueNames()
                     NewFadeTimes = getFadeTimes()
@@ -1655,7 +1507,7 @@ local function TCHelper_Window()
             if ImGui.MenuItem(ctx, 'Sequence') then
                 local validTracks = checkTCHelperTracks()
                 if validTracks == true then
-                    local selTrack = readTrackGUID('selected')
+                    local selTrack = projectData.readTrackGUID('selected')
                     --seqName = loadedtracks[selTrack].name
                     getSeqNames()
                     seqChecked = true
@@ -1721,7 +1573,7 @@ local function TCHelper_Window()
         if ImGui.BeginTabItem(ctx, 'Show Setup') then
             if cursor == 0 then
                 CueListSetupWindow()
-                local usedTracks = readTrackGUID('used')
+                local usedTracks = projectData.readTrackGUID('used')
                 if old_trackcount ~= #usedTracks then
                     cueListName = 'Cue List '..#usedTracks + 1
                     seqID = seqBase + #usedTracks
@@ -1730,7 +1582,7 @@ local function TCHelper_Window()
                 end
                 elseif cursor == 1 then
                     local itemcount = getItemCount()
-                    local selectedTrack = readTrackGUID('selected')
+                    local selectedTrack = projectData.readTrackGUID('selected')
                     if old_itemcount ~= itemcount or old_track ~= selectedTrack then
                     if not inputCueNameFieldActive then
                         if selectedOption == 'Cue List' then
@@ -2021,7 +1873,7 @@ function connectionWindowMode2()
         renumberItems()
         getTrackContent()
         if loadProjectMarker == false then
-            sendedData = copy3(loadedtracks)
+            sendedData = helper.copy3(loadedtracks)
             loadProjectMarker = true
         end
         checkItemStatus()
@@ -2231,7 +2083,7 @@ function openShortcutWindow()
         }
 
         -- Tracks durchlaufen und Shortcuts anzeigen
-        local usedTracks = readTrackGUID("used")
+        local usedTracks = projectData.readTrackGUID("used")
         for i, trackGUID in ipairs(usedTracks) do
             local trackName = loadedtracks[trackGUID] and loadedtracks[trackGUID].name or "Track " .. i
             reaper.ImGui_Text(ctx, trackName .. ":")
@@ -2686,7 +2538,6 @@ function CueListSetupWindow()
     end
    
 end
-
 ---------------ADD CUE WINDOW---------------------------------------------------------------
 function SingleActionWindow()
     local buttonHeight = 50
@@ -2894,7 +2745,7 @@ function renameTrackWindow()
     local buttonWidth = math.max(minButtonWidth, 100)
     local buttonHeight = math.max(minButtonHeight, 100)
 
-    local usedTracks = readTrackGUID('used')
+    local usedTracks = projectData.readTrackGUID('used')
     local seqIDs = {}
     local existingNames = {} -- Tabelle zur Überprüfung auf doppelte Namen
 
@@ -2958,8 +2809,8 @@ function renameCuesWindow()
     local buttonHeight = math.max(minButtonHeight, 20)
     local textWidth = paneWidth - fadeWidth - buttonWidth - 170
     local spacer = 20
-    local usedTracks = readTrackGUID('used')
-    local tcTrack = readTrackGUID('selected')
+    local usedTracks = projectData.projectData.readTrackGUID('used')
+    local tcTrack = projectData.projectData.readTrackGUID('selected')
 
     -- Überprüfen, ob der ausgewählte Track in den verwendeten Tracks vorhanden ist
     local trackFound = false
@@ -3137,7 +2988,7 @@ function addTrack(params)
     if buttonName_ == btnNames[5] then red, green, blue = 163, 198, 142; selectedIcon = trackIcon.name[5] end
 
     -- Eindeutige seqID bestimmen (nur wenn kein Import/poolID)
-    local usedTracks = readTrackGUID('used')
+    local usedTracks = projectData.readTrackGUID('used')
     local existingSeqIDs = {}
     for i = 1, #usedTracks do
         local trackSeqID = tonumber(loadedtracks[usedTracks[i]].seqID)
@@ -3190,7 +3041,7 @@ function addTrack(params)
 
     -- Shortcuts wie bisher
     local defaultShortcuts = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
-    usedTracks = readTrackGUID('used')
+    usedTracks = projectData.readTrackGUID('used')
     for i = 1, #usedTracks, 1 do
         if i <= 9 and newTrackGUID == usedTracks[i] then
             trackShortcuts[newTrackGUID] = defaultShortcuts[i]
@@ -3209,8 +3060,8 @@ function deleteTrack()
     --reaper.ShowConsoleMsg('\nDELETE TRACK START')
     getTrackContent()
     getSeqNames()
-    local trackGUIDS = readTrackGUID('used')
-    local selectedTrackGUID = readTrackGUID('selected')
+    local trackGUIDS = projectData.readTrackGUID('used')
+    local selectedTrackGUID = projectData.readTrackGUID('selected')
 
     local trackPos = 1
     for i = 1, #trackGUIDS, 1 do
@@ -3259,7 +3110,7 @@ function deleteTrack()
 end
 function renameTrack(newSeqNames)
     getTrackContent()
-    local trackGUIDs = readTrackGUID('used')
+    local trackGUIDs =projectData.readTrackGUID('used')
     local existingNames = {}
 
     -- Sammle bestehende Namen, um sie in ensureUniqueSeqName zu verwenden
@@ -3315,7 +3166,7 @@ function deleteSelection()
     getTrackContent()
     --reaper.ShowConsoleMsg('\n--DELETE STARTED--')
     local selectedGUIDS = {}
-    local trackGUID = readTrackGUID('selected')
+    local trackGUID = projectData.readTrackGUID('selected')
     local numSelectedItems = reaper.CountSelectedMediaItems(0)
     local selectedItems = {}
     if numSelectedItems > 0 then
@@ -3376,7 +3227,7 @@ end
 ---------------ADD Item --------------------------------------------------------------------
 function addItem(trackGUID, params)
     params = params or {}
-    local definedTrackGUID = trackGUID or params.trackGUID or readTrackGUID('selected')
+    local definedTrackGUID = trackGUID or params.trackGUID or projectData.readTrackGUID('selected')
     getTrackContent()
     if not definedTrackGUID then
         noTrackError()
@@ -3427,7 +3278,7 @@ function addItem(trackGUID, params)
 
     local newCueGUID = reaper.BR_GetMediaItemGUID(media_item)
     if not tracks[definedTrackGUID] then
-        tracks[definedTrackGUID] = copy3(dummytrack)
+        tracks[definedTrackGUID] =helper.copy3(dummytrack)
     end
     if not tracks[definedTrackGUID].cue then
         tracks[definedTrackGUID].cue = {}
@@ -3456,13 +3307,13 @@ function renameItems()
     getTrackContent()
     local itemName = 'ph'
     local selectedTrack = reaper.GetSelectedTrack(0, 0)
-    local trackGUID = readTrackGUID('selected')
+    local trackGUID = projectData.readTrackGUID('selected')
     local cueAmmount = 0
     local cueGUIDs = 'empty'
     local mediaItem = {}
     if selectedTrack ~= nil then
         cueAmmount = reaper.CountTrackMediaItems(selectedTrack)
-        cueGUIDs = readItemGUID(trackGUID)
+        cueGUIDs = projectData.readItemGUID(trackGUID)
     end
     local cueFade = {}
 
@@ -3523,8 +3374,8 @@ function renameCuesWindow()
     local buttonHeight = math.max(minButtonHeight, 20)
     local textWidth = paneWidth - fadeWidth - buttonWidth - 170
     local spacer = 20
-    local usedTracks = readTrackGUID('used')
-    local tcTrack = readTrackGUID('selected')
+    local usedTracks = projectData.readTrackGUID('used')
+    local tcTrack = projectData.readTrackGUID('selected')
 
     -- Überprüfen, ob der ausgewählte Track in den verwendeten Tracks vorhanden ist
     local trackFound = false
@@ -3628,10 +3479,10 @@ function renameCuesWindow()
     reaper.ImGui_Dummy(ctx, 0, 0)
 end
 function renumberItems()
-    local selTrack = readTrackGUID('selected')
+    local selTrack = projectData.readTrackGUID('selected')
     local track = reaper.BR_GetMediaTrackByGUID(0, selTrack)
     if selTrack ~= nil then
-        local itemGUID = readItemGUID(selTrack)
+        local itemGUID = projectData.readItemGUID(selTrack)
         local itemamount = reaper.CountTrackMediaItems(track)
         local namePart = {}
         local oldCueNr = {}
@@ -3753,7 +3604,7 @@ function setCursorToItem (itemPos)
 end
 function createCueInSelectedTrack()
     -- Hole die GUID des ausgewählten Tracks
-    local selectedTrackGUID = readTrackGUID('selected')
+    local selectedTrackGUID = projectData.readTrackGUID('selected')
     if not selectedTrackGUID then
         reaper.ShowMessageBox("No track selected. Please select a track.", "Error", 0)
         return
@@ -3767,7 +3618,7 @@ function setOSCcommand(overwrite)
     getTrackContent()
     local cueGUID = {}
     local cueAmmount = {}
-    local usedTrackGUID = readTrackGUID('used')
+    local usedTrackGUID = projectData.readTrackGUID('used')
     local longestTime = getLongestTrackTime() + 10
     local buttonOption = ''
     local token = overwrite
@@ -3809,7 +3660,7 @@ function setOSCcommand(overwrite)
     }
     ------SEQ COMMAND---------
     for i = 1, #usedTrackGUID do
-        cueGUID[i] = readItemGUID(usedTrackGUID[i])
+        cueGUID[i] = projectData.readItemGUID(usedTrackGUID[i])
         OscCommands.cue.storeCueCmd[i] = {}
         OscCommands.cue.labelCueCmd[i] = {}
         OscCommands.cue.fadeCueCmd[i] = {}
@@ -3908,10 +3759,10 @@ function checkSendedData()
     checkData.track = {}
     checkData.item = {}
     
-    local usedTracks = readTrackGUID('used')
+    local usedTracks = projectData.readTrackGUID('used')
     for i = 1, #usedTracks, 1 do
 
-        local itemGuid = readItemGUID(usedTracks[i])
+        local itemGuid = projectData.readItemGUID(usedTracks[i])
         local trackID = reaper.BR_GetMediaTrackByGUID(0, usedTracks[i])
         local itemAmmount = reaper.CountTrackMediaItems(trackID)
         --reaper.ShowConsoleMsg('\nNew Item Ammount: '..itemAmmount)
@@ -4075,7 +3926,7 @@ function checkSendedData()
 end
 function sendToConsole(hostIP, consolePort, OscCommands)
     local seqCheck = checkSeqInfo()
-    local usedTracks = readTrackGUID('used')
+    local usedTracks = projectData.readTrackGUID('used')
     local sendedCheck = checkSendedData()
     local itemAmmount = {}
     if seqCheck == false then
@@ -4085,16 +3936,16 @@ function sendToConsole(hostIP, consolePort, OscCommands)
         end
       
         for i = 1, #usedTracks, 1 do -------------------STORE SEQ COMMANDS   
-            local itemGuid = readItemGUID(usedTracks[i])            
+            local itemGuid = projectData.readItemGUID(usedTracks[i])            
             if sendedCheck.track[usedTracks[i]].id == true  then
                 sendOSC(hostIP, consolePort, OscCommands.sequence.storeSeqCmd[i])
-                sendedData[usedTracks[i]].id = copy3(loadedtracks[usedTracks[i]].id)
+                sendedData[usedTracks[i]].id = helper.copy3(loadedtracks[usedTracks[i]].id)
 
                 --reaper.ShowConsoleMsg('\n'..OscCommands.sequence.storeSeqCmd[i])
             end
             if sendedCheck.track[usedTracks[i]].name == true  then
                 sendOSC(hostIP, consolePort, OscCommands.sequence.labelSeqCmd[i])
-                sendedData[usedTracks[i]].name = copy3(loadedtracks[usedTracks[i]].name)
+                sendedData[usedTracks[i]].name = helper.copy3(loadedtracks[usedTracks[i]].name)
 
                 --reaper.ShowConsoleMsg('\n'..OscCommands.sequence.labelSeqCmd[i])
             end        
@@ -4106,24 +3957,24 @@ function sendToConsole(hostIP, consolePort, OscCommands)
                             -----------CUE LIST SEQUENZEN
                             if sendedCheck.item[itemGuid[j]].id == true then 
                                 sendOSC(hostIP, consolePort, OscCommands.cue.storeCueCmd[i][j])
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].id = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].id)    
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].id = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].id)    
                                 --reaper.ShowConsoleMsg('\n'..OscCommands.cue.storeCueCmd[i][j])
                             end
                             if sendedCheck.item[itemGuid[j]].name == true then 
                                 sendOSC(hostIP, consolePort, OscCommands.cue.labelCueCmd[i][j])
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].name = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].name)
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].name = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].name)
                                 --reaper.ShowConsoleMsg('\n'..OscCommands.cue.labelCueCmd[i][j])
                             end
                             if sendedCheck.item[itemGuid[j]].fadetime == true then 
                                 sendOSC(hostIP, consolePort, OscCommands.cue.fadeCueCmd[i][j])
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].fadetime = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].fadetime)
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].fadetime = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].fadetime)
                             end                                                                                      
                         else    ----TEMP&FLASH SEQUENZEN
                             if sendedCheck.track[usedTracks[i]].tempCueNameChanged == true then
                                 sendOSC(hostIP, consolePort, OscCommands.cue.labelCueCmd[i][1])
                                 -- Update sendedData, damit die Änderung erkannt wird
                                 local firstItemGuid = itemGuid[1]
-                                sendedData[usedTracks[i]].cue[firstItemGuid].name = copy3(loadedtracks[usedTracks[i]].cue[firstItemGuid].name)
+                                sendedData[usedTracks[i]].cue[firstItemGuid].name = helper.copy3(loadedtracks[usedTracks[i]].cue[firstItemGuid].name)
                             end
                     
                             if sendedData[usedTracks[i]].tempNameSended == false then 
@@ -4150,7 +4001,7 @@ function sendToConsole(hostIP, consolePort, OscCommands)
         end
     
         for i = 1, #usedTracks, 1 do --------------------------TIMECODE COMMANDS DIE TRACK SPEZIFISCH SIND
-            local itemGuid = readItemGUID(usedTracks[i])
+            local itemGuid = projectData.readItemGUID(usedTracks[i])
             if sendedData[usedTracks[i]].TCsendedTrack == false  then
                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcStoreTrackCmd[i])
                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcAssignSeqCmd[i])
@@ -4169,25 +4020,25 @@ function sendToConsole(hostIP, consolePort, OscCommands)
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcStoreCueCmd[i][j])---HIER WIRD EIN NEUES TC EVENT GESCHICKT
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcSetCmd)
                                 --reaper.ShowConsoleMsg('\n-'..OscCommands.timecode.tcStoreCueCmd[i][j])
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].TCid = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].TCid)
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].TCid = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].TCid)
 
                             end
                             if sendedCheck.item[itemGuid[j]].itemStart == true then 
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcTimeCueCmd[i][j])--HIER WIRD DEM TC EVENT EINE ZEIT GEGEBEN 
                                 --reaper.ShowConsoleMsg('\n-'..OscCommands.timecode.tcTimeCueCmd[i][j])
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].itemStart = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].itemStart)
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].itemStart = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].itemStart)
                             end
                             if sendedCheck.item[itemGuid[j]].TCname == true then 
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcDestinationCueCmd[i][j])--HIER WIRD DEM TC EVENT EIN CUE ZUGEWIESEN
                                 --reaper.ShowConsoleMsg('\n-'..OscCommands.timecode.tcDestinationCueCmd[i][j])
                                 
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].TCname = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].TCname)
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].TCname = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].TCname)
                             end                
                             if sendedCheck.item[itemGuid[j]].token == true then 
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcButtonCueCmd[i][j])--HIER WIRD DEM TC EVENT EINE FUNKTION GEGEBEN
                                 --reaper.ShowConsoleMsg('\n-'..OscCommands.timecode.tcButtonCueCmd[i][j])
                                 
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].token = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].token)
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].token = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].token)
                             end                
                             
                         else
@@ -4200,31 +4051,31 @@ function sendToConsole(hostIP, consolePort, OscCommands)
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcOffButtonCueCmd[i][j])--HIER WIRD DEM OFF TC EVENT EINE FUNKTION GEGEBEN   
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcOffStatusCueCmd[i][j])--OFF TOKEN FÜR RELEASE CUE
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcSetCmd)
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].TCid = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].TCid)
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].TCid = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].TCid)
                             end
                             
                             
                             if sendedCheck.item[itemGuid[j]].itemStart == true then 
                                 
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcTimeCueCmd[i][j])--HIER WIRD ON CUE TIME GEGEBEN
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].itemStart = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].itemStart)                                
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].itemStart = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].itemStart)                                
                             end
                             
                             if sendedCheck.item[itemGuid[j]].itemEnd == true then
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcOffTimeCueCmd[i][j])
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].itemEnd = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].itemEnd)
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].itemEnd = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].itemEnd)
                             end
                             if sendedCheck.item[itemGuid[j]].cuenr == true then                                 
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcOffButtonCueCmd[i][j])
                                 --sendOSC(hostIP, consolePort, OscCommands.timecode.tcOffStatusCueCmd[i][j])--OFF TOKEN FÜR End CUE
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].cuenr = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].cuenr)
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].cuenr = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].cuenr)
                             end                 
                             if sendedCheck.item[itemGuid[j]].TCname == true then 
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcDestinationCueCmd[i][j])--HIER WIRD DEM TC EVENT EIN CUE ZUGEWIESEN
                                 sendOSC(hostIP, consolePort, OscCommands.timecode.tcOffDestinationCueCmd[i][j])--HIER WIRD DEM OFF TC EVENT EIN CUE ZUGEWIESEN
                                 --reaper.ShowConsoleMsg('\n-'..OscCommands.timecode.tcDestinationCueCmd[i][j])
                                 
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].TCname = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].TCname)
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].TCname = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].TCname)
                             end                
                         end
                     end                
@@ -4240,7 +4091,7 @@ end
 function sendOSC(hostIP, consolePort, cmd)
     local delay = 0.001
 
-    sleep(delay)
+    helper.sleep(delay)
     local msg = osc_encode('/' .. prefix .. '/cmd', 's', cmd)
     
     --local msg = '/reaper/cmd "Store Seq 1001"'
@@ -4274,7 +4125,7 @@ end
 function setupSeqXml ()
     --consoleMSG('SEQ XML START')
     getTrackContent()
-    local trackGUIDs = readTrackGUID('used')
+    local trackGUIDs = projectData.readTrackGUID('used')
     
     local seqNames = {}
     local itemGUIDs = {}
@@ -4293,7 +4144,7 @@ function setupSeqXml ()
     ]]
     for i = 1, #trackGUIDs, 1 do
         seqNames[i] = loadedtracks[trackGUIDs[i]].name
-        itemGUIDs = readItemGUID(trackGUIDs[i])
+        itemGUIDs = projectData.readItemGUID(trackGUIDs[i])
         cueAmmount = #itemGUIDs
         seqID = loadedtracks[trackGUIDs[i]].seqID
         
@@ -4343,7 +4194,7 @@ function setupSeqXml ()
         end
 function pushXML(object)
     local ip = hostIP
-    local bash, system = defineBash()
+    local bash, system = helper.defineBash()
     local reaperPath = reaper.GetResourcePath()
     local filepath = reaperPath..'/Scripts/'..repositoryName..'/temp_'..object..'.xml'
     local ftpUser = 'data'
@@ -4359,19 +4210,19 @@ function pushXML(object)
     end
 end
 function sendTelnet(maCommand)
-    consoleMSG('telnet Test START')
+    helper.consoleMSG('telnet Test START')
     local cmd = maCommand
     local user = userName
     local ip = hostIP
     local port = '30000'
-    local bash, system = defineBash()   
+    local bash, system = helper.defineBash()   
     
     if system == 'macOS' then
         local telnet_string = ([['(echo Login "%s" && echo %s && sleep 1) | /opt/homebrew/bin/telnet %s %s']]):format(user, cmd, ip, port)
         ret = reaper.ExecProcess(bash .. telnet_string, 0)
-        consoleMSG(ret)
-        consoleMSG(telnet_string)
-        consoleMSG('telnet Test END')
+        helper.consoleMSG(ret)
+        helper.consoleMSG(telnet_string)
+        helper.consoleMSG('telnet Test END')
     elseif system == 'win' then
         reaper.ImGui_Text(ctx, 'Windows not supported yet')
         
@@ -4395,7 +4246,7 @@ function importInShowfile(object,objectID)
 end
 function sendToConsoleMA2(OscCommands)
     local seqCheck = checkSeqInfo()
-    local usedTracks = readTrackGUID('used')
+    local usedTracks = projectData.readTrackGUID('used')
     local sendedCheck = checkSendedData()
     local itemAmmount = {}
     if seqCheck == false then
@@ -4405,16 +4256,16 @@ function sendToConsoleMA2(OscCommands)
         end
       
         for i = 1, #usedTracks, 1 do -------------------STORE SEQ COMMANDS   
-            local itemGuid = readItemGUID(usedTracks[i])            
+            local itemGuid = projectData.readItemGUID(usedTracks[i])            
             if sendedCheck.track[usedTracks[i]].id == true  then
                 sendTelnet(OscCommands.sequence.storeSeqCmd[i])
-                sendedData[usedTracks[i]].id = copy3(loadedtracks[usedTracks[i]].id)
+                sendedData[usedTracks[i]].id = helper.copy3(loadedtracks[usedTracks[i]].id)
 
                 --reaper.ShowConsoleMsg('\n'..OscCommands.sequence.storeSeqCmd[i])
             end
             if sendedCheck.track[usedTracks[i]].name == true  then
                 sendTelnet(OscCommands.sequence.labelSeqCmd[i])
-                sendedData[usedTracks[i]].name = copy3(loadedtracks[usedTracks[i]].name)
+                sendedData[usedTracks[i]].name = helper.copy3(loadedtracks[usedTracks[i]].name)
 
                 --reaper.ShowConsoleMsg('\n'..OscCommands.sequence.labelSeqCmd[i])
             end        
@@ -4426,17 +4277,17 @@ function sendToConsoleMA2(OscCommands)
                             -----------CUE LIST SEQUENZEN
                             if sendedCheck.item[itemGuid[j]].id == true then 
                                 sendTelnet(OscCommands.cue.storeCueCmd[i][j])
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].id = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].id)    
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].id = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].id)    
                                 --reaper.ShowConsoleMsg('\n'..OscCommands.cue.storeCueCmd[i][j])
                             end
                             if sendedCheck.item[itemGuid[j]].name == true then 
                                 sendTelnet(OscCommands.cue.labelCueCmd[i][j])
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].name = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].name)
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].name = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].name)
                                 --reaper.ShowConsoleMsg('\n'..OscCommands.cue.labelCueCmd[i][j])
                             end
                             if sendedCheck.item[itemGuid[j]].fadetime == true then 
                                 sendTelnet(OscCommands.cue.fadeCueCmd[i][j])
-                                sendedData[usedTracks[i]].cue[itemGuid[j]].fadetime = copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].fadetime)
+                                sendedData[usedTracks[i]].cue[itemGuid[j]].fadetime = helper.copy3(loadedtracks[usedTracks[i]].cue[itemGuid[j]].fadetime)
                             end                                                                                      
                         else    ----TEMP&FLASH SEQUENZEN
                             if sendedData[usedTracks[i]].tempCueSended == false then
