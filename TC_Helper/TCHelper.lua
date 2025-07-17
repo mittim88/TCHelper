@@ -25,6 +25,8 @@ local format = require('format')
 local shortcuts = require('shortcuts')
 local helper = require('helper')
 local projectData = require('projectData')
+local selectionTools = require('selectionTools')
+local error = require('error')
 --------------------------------------------------------------------------------
 local version = '3.4.4'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
@@ -96,7 +98,7 @@ local shortcutsChecked = false
 local inputCueNameFieldActive = false
 local dummyIPstring = '--Enter console IP--'
 local tracks = {}
-local loadedtracks = {}
+loadedtracks = {}
 local sendedData = {}
 local clipboard = {}
 local previousTrackGUID = nil
@@ -132,10 +134,10 @@ local BigLogoWidth = 130
 local BigLogoHeight = 110
 local BigLogoY = -10
 local assigningShortcut = nil -- Speichert den TrackGUID, für den ein Shortcut zugewiesen wird
-trackShortcuts = trackShortcuts or {}
-globalShortcuts = globalShortcuts or { playPause = "P", createCue = "N" }
-trackShortcutsSafed = reaper.GetExtState('TCHelper', 'trackShortcutsSafed') or false
-globalShortcutsSafed = reaper.GetExtState('TCHelper', 'globalShortcutsSafed') or false
+local trackShortcuts = trackShortcuts or {}
+local globalShortcuts = globalShortcuts or { playPause = "P", createCue = "N" }
+local trackShortcutsSafed = reaper.GetExtState('TCHelper', 'trackShortcutsSafed') or false
+local globalShortcutsSafed = reaper.GetExtState('TCHelper', 'globalShortcutsSafed') or false
 --------------------------------------------------------------- 
 local dummytrack = {
     id = 'dummyTrackID',
@@ -871,26 +873,6 @@ function Color.HSV(h, s, v, a)
     local r, g, b = ImGui.ColorConvertHSVtoRGB(h, s, v)
     return ImGui.ColorConvertDouble4ToU32(r, g, b, a or 1.0)
 end
-function getItemCount(GUID)
-
-    if GUID == nil then
-        local selectedTrack = 'noTrack'
-        selectedTrack = reaper.GetSelectedTrack(0, 0)
-        if selectedTrack == nil then
-            itemCount = 0
-        else
-            itemCount = reaper.CountTrackMediaItems(selectedTrack)
-        end
-    else
-        local trackID = reaper.BR_GetMediaTrackByGUID(0, GUID)
-        if trackID ~= nil then
-            itemCount = reaper.CountTrackMediaItems(trackID)
-        else
-            itemCount = 0
-        end
-    end
-    return itemCount
-end
 function getLongestTrackTime()
     local longestLength = reaper.GetProjectLength(0)
     return longestLength
@@ -908,60 +890,6 @@ function getFirstTouchedMediaItem()
         end
     end
     return nil -- No touched items found
-end
-function getCueNames()
-    local trackID = projectData.readTrackGUID('selected')
-    local selectedTrack = 'noTrack'
-    selectedTrack = reaper.GetSelectedTrack(0, 0)
-    local itemCount = 0
-    local cueGUIDs = 'empty'
-
-    if selectedTrack == nil then
-        itemCount = 0
-    else
-        itemCount = reaper.CountTrackMediaItems(selectedTrack)
-        cueGUIDs = projectData.readItemGUID(trackID)
-    end
-    local oldCueName = {}
-    for i = 1, itemCount, 1 do
-        if loadedtracks[trackID] and loadedtracks[trackID].cue[cueGUIDs[i]] then
-            oldCueName[i] = loadedtracks[trackID].cue[cueGUIDs[i]].name or 'empty'
-        else
-            oldCueName[i] = 'empty'
-        end
-    end
-    return oldCueName
-end
-function getSeqNames () 
-    local newSeqNames = {}
-    local usedTracks = projectData.readTrackGUID('used')
-    for i = 1, #usedTracks, 1 do
-        newSeqNames[i] = loadedtracks[usedTracks[i]].name
-    end
-    return newSeqNames
-end
-function getFadeTimes()
-    local trackID = projectData.readTrackGUID('selected')
-    local selectedTrack = 'noTrack'
-    selectedTrack = reaper.GetSelectedTrack(0, 0)
-    local itemCount = 0
-    local cueGUIDs = 'empty'
-
-    if selectedTrack == nil then
-        itemCount = 0
-    else
-        itemCount = reaper.CountTrackMediaItems(selectedTrack)
-        cueGUIDs = projectData.readItemGUID(trackID)
-    end
-    local oldFadeTime = {}
-    for i = 1, itemCount, 1 do
-        if loadedtracks[trackID] and loadedtracks[trackID].cue[cueGUIDs[i]] then
-            oldFadeTime[i] = loadedtracks[trackID].cue[cueGUIDs[i]].fadetime or 0
-        else
-            oldFadeTime[i] = 0
-        end
-    end
-    return oldFadeTime
 end
 function ensureUniqueSeqName(seqName, existingNames)
     -- Falls der Name bereits existiert, füge eine Nummer an
@@ -1384,91 +1312,8 @@ local function onOSCMessage(data)
         reaper.ShowConsoleMsg("[OSC RAW] " .. tostring(data) .. "\n")
     end
 end
----SELECTION TOOLS
-function snapCursorToSelection()
-    local selectedItem = getFirstTouchedMediaItem()
-    --local selectedItem = reaper.GetSelectedMediaItem(0, 0)
-    if snapCursorbox == true then
-        if selectedItem ~= nil then
-            local startTime = reaper.GetMediaItemInfo_Value(selectedItem, "D_POSITION")
-            reaper.SetEditCurPos(startTime, true, false)
-        end
-    end
-end
-function selectToolsmaller()
-    local trackGUID = {}
-    local trackAmmount = 0
-    local cursorposition = reaper.GetCursorPosition()
-    if selectedTrackOption == 'selected Track' then
-        trackGUID[1] = projectData.readTrackGUID('selected')
-        trackAmmount = 1
-    elseif selectedTrackOption == 'all Tracks' then
-        trackGUID = projectData.readTrackGUID('used')        
-        trackAmmount = #trackGUID
-    end
-    for i = 1, trackAmmount do
-        local itemGUID = projectData.readItemGUID(trackGUID[i])
-        for j = 1, #itemGUID, 1 do
-            if loadedtracks[trackGUID[i]].cue[itemGUID[j]].itemStart <= cursorposition then
-                local itemhandle = reaper.BR_GetMediaItemByGUID( 0, loadedtracks[trackGUID[i]].cue[itemGUID[j]].id)
-                reaper.SetMediaItemSelected(itemhandle, true) -- Select the item
-                reaper.UpdateArrange() -- Update the arrangement to show the selection
-            end
-        end
-    end
-end
-function selectToolhigher()
-    local trackGUID = {}
-    local trackAmmount = 0
-    local cursorposition = reaper.GetCursorPosition()
-    if selectedTrackOption == 'selected Track' then
-        trackGUID[1] = projectData.readTrackGUID('selected')
-        trackAmmount = 1
-    elseif selectedTrackOption == 'all Tracks' then
-        trackGUID = projectData.readTrackGUID('used')        
-        trackAmmount = #trackGUID
-    end
-    for i = 1, trackAmmount do
-        local itemGUID = projectData.readItemGUID(trackGUID[i])
-        for j = 1, #itemGUID, 1 do
-            if loadedtracks[trackGUID[i]].cue[itemGUID[j]].itemStart >= cursorposition then
-                local itemhandle = reaper.BR_GetMediaItemByGUID( 0, loadedtracks[trackGUID[i]].cue[itemGUID[j]].id)
-                reaper.SetMediaItemSelected(itemhandle, true) -- Select the item
-                reaper.UpdateArrange() -- Update the arrangement to show the selection
-            end
-        end
-    end
-end
-function selectToolall()
-    local trackGUID = {}
-    local trackAmmount = 0
-    local cursorposition = reaper.GetCursorPosition()
-    if selectedTrackOption == 'selected Track' then
-        trackGUID[1] = projectData.readTrackGUID('selected')
-        trackAmmount = 1
-    elseif selectedTrackOption == 'all Tracks' then
-        trackGUID = projectData.readTrackGUID('used')        
-        trackAmmount = #trackGUID
-    end
-    for i = 1, trackAmmount do
-        local itemGUID = projectData.readItemGUID(trackGUID[i])
-        for j = 1, #itemGUID, 1 do            
-            local itemhandle = reaper.BR_GetMediaItemByGUID( 0, loadedtracks[trackGUID[i]].cue[itemGUID[j]].id)
-            reaper.SetMediaItemSelected(itemhandle, true) -- Select the item
-            reaper.UpdateArrange() -- Update the arrangement to show the selection
-        end
-    end
-end
-function noTrackError()
-    local selected_trk = reaper.GetSelectedTrack(0, 0)
-    if selected_trk == nil then
-        reaper.ShowMessageBox("No Track selected", "Error", 0)
-    end    
-end
 -----------------GUI WINDOW MAIN-------------------------------------------------------------
-local toptextXoffset = 650
 local toptextYoffset = 20
-local headerText = script_title..' '..MAmode
 local old_trackcount = -1
 local function TCHelper_Window()
     local rv
@@ -1495,12 +1340,12 @@ local function TCHelper_Window()
                 if validTracks == true then
                     local selTrack = projectData.readTrackGUID('selected')
                     seqName = loadedtracks[selTrack].name
-                    NewCueNames = getCueNames()
-                    NewFadeTimes = getFadeTimes()
+                    NewCueNames = projectData.getCueNames()
+                    NewFadeTimes = projectData.getFadeTimes()
                     cuesChecked = true
                 else
-                    NewCueNames = getCueNames()
-                    NewFadeTimes = getFadeTimes()
+                    NewCueNames = projectData.getCueNames()
+                    NewFadeTimes = projectData.getFadeTimes()
                     cuesChecked = true
                 end  
             end
@@ -1509,7 +1354,7 @@ local function TCHelper_Window()
                 if validTracks == true then
                     local selTrack = projectData.readTrackGUID('selected')
                     --seqName = loadedtracks[selTrack].name
-                    getSeqNames()
+                    projectData.getSeqNames()
                     seqChecked = true
                 else
                     
@@ -1581,7 +1426,7 @@ local function TCHelper_Window()
                     old_trackcount = #usedTracks
                 end
                 elseif cursor == 1 then
-                    local itemcount = getItemCount()
+                    local itemcount = projectData.getItemCount()
                     local selectedTrack = projectData.readTrackGUID('selected')
                     if old_itemcount ~= itemcount or old_track ~= selectedTrack then
                     if not inputCueNameFieldActive then
@@ -2133,7 +1978,7 @@ function openShortcutWindow()
                         if not isDuplicate then
                             trackShortcuts[trackGUID] = key -- Shortcut speichern
                             assigningShortcut = nil -- Zuweisung beenden
-                            shortcuts.saveShortcuts() -- Shortcuts speichern
+                            shortcuts.saveShortcuts(trackShortcuts) -- Shortcuts speichern
                         else
                             -- Zeige eine Fehlermeldung an
                             reaper.ShowMessageBox(
@@ -2194,7 +2039,7 @@ function openShortcutWindow()
                     if not isDuplicate then
                         globalShortcuts.playPause = key
                         assigningShortcut = nil
-                        shortcuts.saveGlobalShortcuts()
+                        shortcuts.saveGlobalShortcuts(globalShortcuts)
                     else
                         -- Zeige eine Fehlermeldung an
                         reaper.ShowMessageBox(
@@ -2251,7 +2096,7 @@ function openShortcutWindow()
                     if not isDuplicate then
                         globalShortcuts.createCue = key
                         assigningShortcut = nil
-                        shortcuts.saveGlobalShortcuts()
+                        shortcuts.saveGlobalShortcuts(globalShortcuts)
                     else
                         -- Zeige eine Fehlermeldung an
                         reaper.ShowMessageBox(
@@ -2359,15 +2204,15 @@ function ToolsWindow()
     ImGui.Text(ctx, 'Select on before or after cursor')
     reaper.ImGui_SetCursorPos(ctx, xButtonsStart, timetextY + 1.6*Yoffset)
     if reaper.ImGui_Button(ctx, 'Before', buttonWidth, buttonHeight) then
-        selectToolsmaller()
+        selectionTools.selectToolsmaller()
     end
     reaper.ImGui_SameLine(ctx)
     if reaper.ImGui_Button(ctx, 'ALL', buttonWidth, buttonHeight) then
-        selectToolall()
+        selectionTools.selectToolall()
     end
     reaper.ImGui_SameLine(ctx)
     if reaper.ImGui_Button(ctx, 'After', buttonWidth, buttonHeight) then
-        selectToolhigher()
+        selectionTools.selectToolhigher()
     end
     ---------------Copy Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, xButtonsStart, toptextYoffset + 155)
@@ -2751,7 +2596,7 @@ function renameTrackWindow()
 
     -- Initialisiere die Liste der neuen Sequenznamen, falls sie noch nicht existiert
     if not newSeqNames or #newSeqNames ~= #usedTracks or trackRenamed  then
-        newSeqNames = getSeqNames()
+        newSeqNames = projectData.getSeqNames()
         trackRenamed = false
     end
 
@@ -2785,7 +2630,7 @@ function renameTrackWindow()
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', buttonWidth, buttonHeight) then
         renameTrack(newSeqNames) -- Schreibe die neuen Namen in die Tracks
-        newSeqNames = getSeqNames()
+        newSeqNames = projectData.getSeqNames()
 
     end
 
@@ -2831,8 +2676,8 @@ function renameCuesWindow()
         return
     end
     if previousTrackGUID ~= tcTrack or eventAdded then
-        NewCueNames = getCueNames()
-        NewFadeTimes = getFadeTimes()
+        NewCueNames = projectData.getCueNames()
+        NewFadeTimes = projectData.getFadeTimes()
         previousTrackGUID = tcTrack
         eventAdded = false
     end
@@ -2906,8 +2751,8 @@ function renameCuesWindow()
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', buttonWidth, 80) then
         renameItems()
-        NewCueNames = getCueNames()
-        NewFadeTimes = getFadeTimes()
+        NewCueNames = projectData.getCueNames()
+        NewFadeTimes = projectData.getFadeTimes()
     end
 
     -- Dummy-Komponente hinzufügen, um die Fenstergrenzen zu validieren
@@ -3047,7 +2892,7 @@ function addTrack(params)
             trackShortcuts[newTrackGUID] = defaultShortcuts[i]
         end
     end
-    shortcuts.saveShortcuts()
+    shortcuts.saveShortcuts(trackShortcuts)
     getTrackContent()
     pendingLiveUpdate = true
     if not params.poolID then
@@ -3059,7 +2904,7 @@ end
 function deleteTrack()
     --reaper.ShowConsoleMsg('\nDELETE TRACK START')
     getTrackContent()
-    getSeqNames()
+    projectData.getSeqNames()
     local trackGUIDS = projectData.readTrackGUID('used')
     local selectedTrackGUID = projectData.readTrackGUID('selected')
 
@@ -3098,7 +2943,7 @@ function deleteTrack()
                 trackShortcuts[trackGUID] = nil
             end
         end      
-        shortcuts.saveShortcuts()
+        shortcuts.saveShortcuts(trackShortcuts)
         reaper.PreventUIRefresh(-1) -- Enable UI updates
         reaper.UpdateArrange() -- Refresh the GUI
     else
@@ -3205,7 +3050,7 @@ function deleteSelection()
                         local TCMessageOn = 'Delete Timecode ' ..tcID ..'.1.'.. trackID .. '.1.1.'..onNr..' /nc'
                         sendOSC(hostIP, consolePort, TCMessageOff)
                         sendOSC(hostIP, consolePort, TCMessageOn)        
-                        local itemCount = getItemCount() 
+                        local itemCount = projectData.getItemCount() 
                         itemCount = itemCount - 1                    
                     end
 
@@ -3218,8 +3063,8 @@ function deleteSelection()
     else
         reaper.ShowMessageBox("No Cues selected.", "Error", 0)
     end
-    NewCueNames = getCueNames()
-    NewFadeTimes = getFadeTimes()
+    NewCueNames = projectData.getCueNames()
+    NewFadeTimes = projectData.getFadeTimes()
     getTrackContent()
     pendingLiveUpdate = true
     --reaper.ShowConsoleMsg('\n--DELETE ENDED--')
@@ -3230,7 +3075,7 @@ function addItem(trackGUID, params)
     local definedTrackGUID = trackGUID or params.trackGUID or projectData.readTrackGUID('selected')
     getTrackContent()
     if not definedTrackGUID then
-        noTrackError()
+        error.noTrackError()
         return
     end
 
@@ -3297,7 +3142,7 @@ function addItem(trackGUID, params)
     SetupSendedDataItem(definedTrackGUID, newCueGUID)
     renumberItems()
     if trackShortcutsSafed == false then
-        shortcuts.initializeTrackShortcuts()
+        shortcuts.initializeTrackShortcuts(trackShortcuts, trackShortcutsSafed)
     end
     getTrackContent()
     eventAdded = true
@@ -3396,8 +3241,8 @@ function renameCuesWindow()
         return
     end
     if previousTrackGUID ~= tcTrack or eventAdded then
-        NewCueNames = getCueNames()
-        NewFadeTimes = getFadeTimes()
+        NewCueNames = projectData.getCueNames()
+        NewFadeTimes = projectData.getFadeTimes()
         previousTrackGUID = tcTrack
         eventAdded = false
     end
@@ -3471,8 +3316,8 @@ function renameCuesWindow()
     reaper.ImGui_SetCursorPos(ctx, paneWidth + spaceBtn, 60)
     if reaper.ImGui_Button(ctx, 'WRITE NEW\n     DATA', buttonWidth, 80) then
         renameItems()
-        NewCueNames = getCueNames()
-        NewFadeTimes = getFadeTimes()
+        NewCueNames = projectData.getCueNames()
+        NewFadeTimes = projectData.getFadeTimes()
     end
 
     -- Dummy-Komponente hinzufügen, um die Fenstergrenzen zu validieren
@@ -4322,9 +4167,9 @@ getTrackContent()
 checkSendedData()
 defineMA3ModeOnFirstStrartup()
 copyReaperTemplate()
-shortcuts.initializeTrackShortcuts()
-shortcuts.loadShortcuts()
-shortcuts.loadGlobalShortcuts()
+shortcuts.initializeTrackShortcuts(trackShortcuts, trackShortcutsSafed)
+shortcuts.loadShortcuts(trackShortcuts)
+shortcuts.loadGlobalShortcuts(globalShortcuts)
 local xmlContent, code = fetchXML(page)
 if xmlContent then
     
@@ -4345,7 +4190,7 @@ local function loop()
         --setIPAdress()
         --updateInputCueName()
         
-        shortcuts.checkShortcuts() -- Überprüfe Tastendrücke
+        shortcuts.checkShortcuts(ctx,trackShortcuts,globalShortcuts) -- Überprüfe Tastendrücke
 
         -- Live Update: Änderungen nachholen, wenn aktiviert wird
         if liveupdatebox and not lastLiveUpdateState and pendingLiveUpdate then
@@ -4373,8 +4218,8 @@ local function loop()
 
         --reaper.ShowConsoleMsg('\n'..inputCueName)
         --getTrackContent()
-        snapCursorToSelection()
-        cueCount = getItemCount()
+        selectionTools.snapCursorToSelection()
+        cueCount = projectData.getItemCount()
         getCursorPosition()
         getSelectedOption()
         --liveTrackCount = readTrackGUID('used')

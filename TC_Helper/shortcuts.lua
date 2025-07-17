@@ -3,7 +3,7 @@ package.path = script_path .. "?.lua;" .. package.path
 local helper = require('helper')
 local shortcuts = {}
 local projectData = require('projectData')
-function shortcuts.checkShortcuts()
+function shortcuts.checkShortcuts(ctx,trackShortcuts,globalShortcuts)
     trackShortcuts = trackShortcuts or {}
     -- Verhindere das Erstellen von Events, wenn ein Shortcut zugewiesen wird
     if assigningShortcut then return end
@@ -39,13 +39,13 @@ function shortcuts.checkShortcuts()
         end
     end
 end
-function shortcuts.saveShortcuts()
+function shortcuts.saveShortcuts(trackShortcuts)
     trackShortcuts = trackShortcuts or {}
     local serializedShortcuts = helper.tableToString(trackShortcuts)
     reaper.SetExtState("TCHelper", "TrackShortcuts", serializedShortcuts, true)
     reaper.SetExtState("TCHelper", "trackShortcutsSafed", "true", true)
 end
-function shortcuts.loadShortcuts()
+function shortcuts.loadShortcuts(trackShortcuts)
     -- Initialisiere trackShortcuts, falls sie nicht existiert
     trackShortcuts = trackShortcuts or {}
 
@@ -54,11 +54,14 @@ function shortcuts.loadShortcuts()
 
     if serializedShortcuts and serializedShortcuts ~= "" and userDefined == "true" then
         -- Benutzer hat eigene Shortcuts gespeichert → lade diese
-        trackShortcuts = helper.stringToTable(serializedShortcuts)
+        local loaded = helper.stringToTable(serializedShortcuts)
+        -- Table-Inhalt kopieren:
+        for k in pairs(trackShortcuts) do trackShortcuts[k] = nil end
+        for k, v in pairs(loaded) do trackShortcuts[k] = v end
     else
         -- Noch keine eigenen Shortcuts gespeichert → Standard-Shortcuts 1-9 für die ersten 9 used Tracks
         local defaultKeys = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
-        local usedTracks = readTrackGUID("used")
+        local usedTracks = projectData.readTrackGUID("used")
         for i, trackGUID in ipairs(usedTracks) do
             if defaultKeys[i] then
                 trackShortcuts[trackGUID] = defaultKeys[i]
@@ -67,7 +70,7 @@ function shortcuts.loadShortcuts()
         -- NICHT speichern! Erst speichern, wenn der User einen Shortcut selbst zuweist
     end
 end
-function shortcuts.initializeTrackShortcuts()
+function shortcuts.initializeTrackShortcuts(trackShortcuts, trackShortcutsSafed)
     trackShortcuts = trackShortcuts or {}
     -- Sicherstellen, dass trackShortcuts initialisiert ist
     --trackShortcuts = trackShortcuts or {}
@@ -83,16 +86,16 @@ function shortcuts.initializeTrackShortcuts()
             consoleMSG('TrackGUID: '..trackGUID..' assigned to: '..defaultKeys[i])
         end
         -- Optional: Shortcuts speichern
-        shortcuts.saveShortcuts()
+        shortcuts.saveShortcuts(trackShortcuts)
         
     end
 end
-function shortcuts.saveGlobalShortcuts()
+function shortcuts.saveGlobalShortcuts(globalShortcuts)
     local serializedShortcuts = helper.tableToString(globalShortcuts)
     reaper.SetExtState("TCHelper", "GlobalShortcuts", serializedShortcuts, true)
     reaper.SetExtState("TCHelper", "globalShortcutsSafed", "true", true)
 end
-function shortcuts.loadGlobalShortcuts()
+function shortcuts.loadGlobalShortcuts(globalShortcuts)
     -- Initialisiere globalShortcuts, falls sie nicht existiert
     if not globalShortcuts then
         globalShortcuts = { playPause = "Space", createCue = "." }
@@ -104,7 +107,7 @@ function shortcuts.loadGlobalShortcuts()
     else
         -- Standard-Shortcuts definieren, wenn keine vorhanden sind
         globalShortcuts = { playPause = "Space", createCue = "." }
-        shortcuts.saveGlobalShortcuts() -- Speichere die Standard-Shortcuts
+        shortcuts.saveGlobalShortcuts(globalShortcuts) -- Speichere die Standard-Shortcuts
     end
 end
 

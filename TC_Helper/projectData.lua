@@ -1,3 +1,6 @@
+local script_path = debug.getinfo(1, 'S').source:match([[^@?(.*[\/])[^\/]-$]])
+package.path = script_path .. "?.lua;" .. package.path
+local error = require('error')
 local projectData = {}
 function projectData.readTrackGUID(token)
     local tracknum = reaper.GetNumTracks(0)
@@ -49,7 +52,7 @@ function projectData.readTrackGUID(token)
                 local track1 = reaper.GetTrack(0, 0)
                 local loadedGUID = reaper.GetTrackGUID(track1)
                 trackGUID[1] = loadedGUID
-                noTrackError()  
+                error.noTrackError()  
             end
         end
         return trackGUID[1]
@@ -67,7 +70,6 @@ function projectData.readItemGUID(trackGUID)
                 local rv, loadedGUID = reaper.GetSetMediaItemInfo_String(mediaItem, "GUID", "", false)
                 itemGUID[count] = loadedGUID
                 count = count + 1
-        
             end
             --reaper.ShowConsoleMsg('\nREADITEMGUID FUNCTION'..itemGUID[count])
         end
@@ -79,5 +81,77 @@ function projectData.getSelectedItemGUID()
     local GUID = reaper.BR_GetMediaItemGUID(selectedItem)
     return GUID
 end
+function projectData.getItemCount(GUID)
+    -- Gibt die Anzahl der Items im ausgewählten Track zurück, oder 0, wenn kein
+    if GUID == nil then
+        local selectedTrack = 'noTrack'
+        selectedTrack = reaper.GetSelectedTrack(0, 0)
+        if selectedTrack == nil then
+            itemCount = 0
+        else
+            itemCount = reaper.CountTrackMediaItems(selectedTrack)
+        end
+    else
+        local trackID = reaper.BR_GetMediaTrackByGUID(0, GUID)
+        if trackID ~= nil then
+            itemCount = reaper.CountTrackMediaItems(trackID)
+        else
+            itemCount = 0
+        end
+    end
+    return itemCount
+end
+function projectData.getCueNames()
+    local trackID = projectData.readTrackGUID('selected')
+    local selectedTrack = 'noTrack'
+    selectedTrack = reaper.GetSelectedTrack(0, 0)
+    local itemCount = 0
+    local cueGUIDs = 'empty'
+    if selectedTrack == nil then
+        itemCount = 0
+    else
+        itemCount = reaper.CountTrackMediaItems(selectedTrack)
+        cueGUIDs = projectData.readItemGUID(trackID)
+    end
+    local oldCueName = {}
+    for i = 1, itemCount, 1 do
+        if loadedtracks[trackID] and loadedtracks[trackID].cue[cueGUIDs[i]] then
+            oldCueName[i] = loadedtracks[trackID].cue[cueGUIDs[i]].name or 'empty'
+        else
+            oldCueName[i] = 'empty'
+        end
+    end
+    return oldCueName
+end
+function projectData.getSeqNames () 
+    local newSeqNames = {}
+    local usedTracks = projectData.readTrackGUID('used')
+    for i = 1, #usedTracks, 1 do
+        newSeqNames[i] = loadedtracks[usedTracks[i]].name
+    end
+    return newSeqNames
+end
+function projectData.getFadeTimes()
+    local trackID = projectData.readTrackGUID('selected')
+    local selectedTrack = 'noTrack'
+    selectedTrack = reaper.GetSelectedTrack(0, 0)
+    local itemCount = 0
+    local cueGUIDs = 'empty'
 
+    if selectedTrack == nil then
+        itemCount = 0
+    else
+        itemCount = reaper.CountTrackMediaItems(selectedTrack)
+        cueGUIDs = projectData.readItemGUID(trackID)
+    end
+    local oldFadeTime = {}
+    for i = 1, itemCount, 1 do
+        if loadedtracks[trackID] and loadedtracks[trackID].cue[cueGUIDs[i]] then
+            oldFadeTime[i] = loadedtracks[trackID].cue[cueGUIDs[i]].fadetime or 0
+        else
+            oldFadeTime[i] = 0
+        end
+    end
+    return oldFadeTime
+end
 return projectData
