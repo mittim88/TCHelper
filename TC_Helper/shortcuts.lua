@@ -3,6 +3,7 @@ package.path = script_path .. "?.lua;" .. package.path
 local helper = require('helper')
 local shortcuts = {}
 local projectData = require('projectData')
+
 function shortcuts.checkShortcuts(ctx,trackShortcuts,globalShortcuts)
     trackShortcuts = trackShortcuts or {}
     -- Verhindere das Erstellen von Events, wenn ein Shortcut zugewiesen wird

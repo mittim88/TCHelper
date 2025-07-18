@@ -27,6 +27,7 @@ local helper = require('helper')
 local projectData = require('projectData')
 local selectionTools = require('selectionTools')
 local error = require('error')
+local guiStyle = require('gui.guiStyle')
 --------------------------------------------------------------------------------
 local version = '3.4.4'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
@@ -249,23 +250,6 @@ function SetupSendedDataItem (trackGUID,itemGUID)
 end
 ---------------HTTP+XML--------------------------------------------------------------------
 ---------------DEFINE HTTP+XML TOOLS--------------------------------------------------------------------
--- LuaSocket HTTP implementation
-local http_socket = {}
-http_socket.http = {}
-http_socket.http.request = function(params)
-    local url = params.url
-    local sink = params.sink
-
-    local handle = io.popen("curl -s -w '%{http_code}' -o - " .. url)
-    local result = handle:read("*a")
-    handle:close()
-
-    local code = tonumber(result:sub(-3))
-    local content = result:sub(1, -4)
-
-    sink(content)
-    return 1, code
-end
 -- Simplified xml2lua implementation
 local xml2lua = {}
 xml2lua.parser = function(handler)
@@ -310,7 +294,7 @@ assert(udp:setsockname(hostIP, listen_port))
 udp:settimeout(0)
 ----------------SETUP GUI-----------------------------------------------------------------------------------------------
 local doStatus , lib = pcall(dofile, reaper.GetResourcePath()..'/Scripts/ReaTeam Extensions/API/imgui.lua')
-ctx = 'empty'
+local ctx = 'empty'
 local sans_serif = 'empty'
 if doStatus == true then
     local foo = lib
@@ -496,24 +480,6 @@ local function storeConsoleData(address, value)
     end
 end
 -----------------BACKROUND STUFF-------------------------------------------------------------
-function fetchXML(url)
-    local response = {}
-    local _, code = http_socket.http.request{
-        url = url,
-        sink = function(chunk)
-            table.insert(response, chunk)
-        end
-    }
-    --consoleMSG('code: '..code)
-
-    if code ~= 200 then
-        -- Fehlermeldung in die Konsole schreiben
-        --reaper.ShowConsoleMsg("Unable to fetch XML content. Please check your internet connection or the URL.\n")
-        return nil, code
-    end
-
-    return table.concat(response), code
-end
 local notesWarned = false
 function checkAndRestoreNotes()
     local anyWrong = false
@@ -616,7 +582,7 @@ function checkForNewVersion(currentVersion, xmlContent)
     return latestVersion
 end
 function manualUpdate()
-    local xmlContent, code = fetchXML(page)
+    local xmlContent, code = helper.fetchXML(page)
     if xmlContent then
         manualCheck = true
         checkForNewVersion(version, xmlContent)
@@ -1119,30 +1085,10 @@ function copyReaperTemplate()
     -- consoleMSG('ProjectTemplateDestination: '..projectTemplateDestination)
     
     -- Kopiere die Dateien
-    copyFile(keyMapSource, keyMapDestination)
-    copyFile(projectTemplateSource, projectTemplateDestination)
+    helper.copyFile(keyMapSource, keyMapDestination)
+    helper.copyFile(projectTemplateSource, projectTemplateDestination)
     
     --reaper.ShowMessageBox("Dateien erfolgreich kopiert.", "Erfolg", 0)
-end
-function copyFile(source, destination)
-    local os_name = reaper.GetOS()
-    local command
-
-    if os_name:find("OSX") or os_name:find("macOS") then
-        command = string.format('cp "%s" "%s"', source, destination)
-    elseif os_name:find("Win") then
-        command = string.format('copy "%s" "%s"', source:gsub("/", "\\"), destination:gsub("/", "\\"))
-    elseif os_name:find("Linux") then
-        command = string.format('cp "%s" "%s"', source, destination)
-    else
-        reaper.ShowMessageBox("Unsupported OS: " .. os_name, "Error", 0)
-        return
-    end
-
-    local result = os.execute(command)
-    -- if result ~= 0 then
-    --     reaper.ShowMessageBox("Fehler beim Kopieren der Datei: " .. source.. ' nach: '..destination, "Fehler", 0)
-    -- end
 end
 function updateInputCueName(targetTrackGUID)
     -- Verwende den übergebenen TrackGUID oder den aktuell ausgewählten Track
@@ -1917,6 +1863,7 @@ function openShortcutWindow()
     reaper.ImGui_SetNextWindowSize(ctx, 400, 500, reaper.ImGui_Cond_FirstUseEver())
     local visible, open = reaper.ImGui_Begin(ctx, "Shortcut Settings", true)
     if visible then
+        --shortcuts.checkShortcuts(ctx, trackShortcuts, globalShortcuts)
         reaper.ImGui_Text(ctx, "Assign personal cue shortcuts")
         reaper.ImGui_Separator(ctx)
 
@@ -4170,7 +4117,7 @@ copyReaperTemplate()
 shortcuts.initializeTrackShortcuts(trackShortcuts, trackShortcutsSafed)
 shortcuts.loadShortcuts(trackShortcuts)
 shortcuts.loadGlobalShortcuts(globalShortcuts)
-local xmlContent, code = fetchXML(page)
+local xmlContent, code = helper.fetchXML(page)
 if xmlContent then
     
     newVersion = checkForNewVersion(version, xmlContent, false)
@@ -4190,22 +4137,21 @@ local function loop()
         --setIPAdress()
         --updateInputCueName()
         
-        shortcuts.checkShortcuts(ctx,trackShortcuts,globalShortcuts) -- Überprüfe Tastendrücke
-
+        
         -- Live Update: Änderungen nachholen, wenn aktiviert wird
         if liveupdatebox and not lastLiveUpdateState and pendingLiveUpdate then
             mergeDataOption()
             pendingLiveUpdate = false
         end
-
+        
         -- Normales Live Update Verhalten
         if liveupdatebox == true then
             mergeDataOption()
             pendingLiveUpdate = false
         end
-
+        
         --RECEIVE OSC COMMANDS--------------------
-            -- OSC abfragen
+        -- OSC abfragen
         if receiveOSCState == true then
             local data = udp:receive()
             if data then
@@ -4213,113 +4159,14 @@ local function loop()
             end
             
         end
-        
         lastLiveUpdateState = liveupdatebox
-
-        --reaper.ShowConsoleMsg('\n'..inputCueName)
-        --getTrackContent()
         selectionTools.snapCursorToSelection()
         cueCount = projectData.getItemCount()
         getCursorPosition()
         getSelectedOption()
-        --liveTrackCount = readTrackGUID('used')
-
         reaper.ImGui_PushFont(ctx, sans_serif)
-        --------------------------------------------------------------------------------------------------------
-        --GUI COLOR STYLE----------------------------------------------------------------------------------------
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Text(),                      0xDCDCDCFF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TextDisabled(),              0x808080FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_WindowBg(),                  0x333333FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ChildBg(),                   0x42424200)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_PopupBg(),                   0x282828F0)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Border(),                    0x6E6E8080)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_BorderShadow(),              0x00000000)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_FrameBg(),                   0x6D76768A)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_FrameBgHovered(),            0x57575766)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_FrameBgActive(),             0x828282AB)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TitleBg(),                   0x6D7676FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TitleBgActive(),             0x6D7676FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TitleBgCollapsed(),          0x00000082)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_MenuBarBg(),                 0x333333FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ScrollbarBg(),               0x26262687)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ScrollbarGrab(),             0x474747FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ScrollbarGrabHovered(),      0x575757FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ScrollbarGrabActive(),       0x1DB287FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_CheckMark(),                 0x1DB287FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_SliderGrab(),                0x2C2B2BFF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_SliderGrabActive(),          0x1DB287FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Button(),                    0x4684739C)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonHovered(),             0x478473FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ButtonActive(),              0x1DB287FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Header(),                    0x1DB2874F)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_HeaderHovered(),             0x1DB287CC)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_HeaderActive(),              0x1DB287FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Separator(),                 0x1DB28780)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_SeparatorHovered(),          0x1DB287C7)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_SeparatorActive(),           0x1DB287FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ResizeGrip(),                0x1DB28733)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ResizeGripHovered(),         0x1DB287AB)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ResizeGripActive(),          0x1DB287F2)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TabHovered(),                0x478473FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_Tab(),                       0x2D4F47FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TabSelected(),               0x478473FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TabSelectedOverline(),       0x1DB287FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TabDimmed(),                 0x111A26F8)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TabDimmedSelected(),         0x23436CFF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TabDimmedSelectedOverline(), 0x808080FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_DockingPreview(),            0x1DB287B3)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_DockingEmptyBg(),            0x333333FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_PlotLines(),                 0x9C9C9CFF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_PlotLinesHovered(),          0xFF6E59FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_PlotHistogram(),             0x223F37FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_PlotHistogramHovered(),      0x1DB287FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TableHeaderBg(),             0x303033FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TableBorderStrong(),         0x4F4F59FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TableBorderLight(),          0x3B3B40FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TableRowBg(),                0x00000000)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TableRowBgAlt(),             0xFFFFFF0F)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_TextSelectedBg(),            0x223F3759)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_DragDropTarget(),            0xFFFF00E6)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_NavHighlight(),              0x1DB287FF)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_NavWindowingHighlight(),     0xFFFFFFB3)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_NavWindowingDimBg(),         0xCCCCCC33)
-        reaper.ImGui_PushStyleColor(ctx, reaper.ImGui_Col_ModalWindowDimBg(),          0xCCCCCC59)
-        -------------------------------------------------------------------------------------------------
-        --GUI WINDOW STYLE-------------------------------------------------------------------------------
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_Alpha(),                       1)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_DisabledAlpha(),               0.6)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_WindowPadding(),               8, 8)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_WindowRounding(),              6)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_WindowBorderSize(),            1)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_WindowMinSize(),               32, 32)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_WindowTitleAlign(),            0, 0.5)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ChildRounding(),               6)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ChildBorderSize(),             1)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_PopupRounding(),               6)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_PopupBorderSize(),             1)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_FramePadding(),                4, 3)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_FrameRounding(),               2)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_FrameBorderSize(),             1)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ItemSpacing(),                 8, 4)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ItemInnerSpacing(),            4, 4)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_IndentSpacing(),               18)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_CellPadding(),                 4, 2)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ScrollbarSize(),               14)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ScrollbarRounding(),           6)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_GrabMinSize(),                 12)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_GrabRounding(),                1)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_TabRounding(),                 2)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_TabBorderSize(),               0)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_TabBarBorderSize(),            0)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_TableAngledHeadersAngle(),     0.610865)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_TableAngledHeadersTextAlign(), 0.5, 0)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_ButtonTextAlign(),             0.5, 0.5)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_SelectableTextAlign(),         0, 0)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_SeparatorTextBorderSize(),     3)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_SeparatorTextAlign(),          0, 0.5)
-        reaper.ImGui_PushStyleVar(ctx, reaper.ImGui_StyleVar_SeparatorTextPadding(),        20, 3)
-        -------------------------------------------------------------------------------------------------
-
+        guiStyle.pushColors(ctx) -- setup Gui Colors
+        guiStyle.pushStyles(ctx) -- setup Gui Styles
         reaper.ImGui_SetNextWindowSize(ctx, 200, 80, reaper.ImGui_Cond_FirstUseEver())
         ---------- DOCK
         if not mainDocked then
@@ -4330,8 +4177,10 @@ local function loop()
         local visible, open = reaper.ImGui_Begin(ctx, script_title, true, flags)
         if visible then
             TCHelper_Window()
+            shortcuts.checkShortcuts(ctx,trackShortcuts,globalShortcuts) -- Überprüfe Tastendrücke
             mainDockID = reaper.ImGui_GetWindowDockID(ctx)
             reaper.SetExtState("TCHelper", "DockID", tostring(mainDockID), true)
+            
             reaper.ImGui_End(ctx)
         end
         if firstopened == false then
@@ -4356,8 +4205,8 @@ local function loop()
         if manualCheck == true then
             ShowOldVersionUpdateWindow(version)
         end
-        reaper.ImGui_PopStyleColor(ctx, 57)
-        reaper.ImGui_PopStyleVar(ctx, 32)
+        guiStyle.popColors(ctx)
+        guiStyle.popStyles(ctx)
         reaper.ImGui_PopFont(ctx)
         if open then
             reaper.defer(loop)

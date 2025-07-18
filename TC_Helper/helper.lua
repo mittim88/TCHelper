@@ -72,4 +72,37 @@ function helper.sleep (a)
     while (os.clock() < sec) do 
     end 
 end
+function helper.fetchXML(url)
+    local handle = io.popen('curl -s -w "%{http_code}" -o - "' .. url .. '"')
+    local result = handle:read("*a")
+    handle:close()
+
+    local code = tonumber(result:sub(-3))
+    local content = result:sub(1, -4)
+
+    if code ~= 200 then
+        return nil, code
+    end
+    return content, code
+end
+function helper.copyFile(source, destination)
+    local os_name = reaper.GetOS()
+    local command
+
+    if os_name:find("OSX") or os_name:find("macOS") then
+        command = string.format('cp "%s" "%s"', source, destination)
+    elseif os_name:find("Win") then
+        command = string.format('copy "%s" "%s"', source:gsub("/", "\\"), destination:gsub("/", "\\"))
+    elseif os_name:find("Linux") then
+        command = string.format('cp "%s" "%s"', source, destination)
+    else
+        reaper.ShowMessageBox("Unsupported OS: " .. os_name, "Error", 0)
+        return
+    end
+
+    local result = os.execute(command)
+    -- if result ~= 0 then
+    --     reaper.ShowMessageBox("Fehler beim Kopieren der Datei: " .. source.. ' nach: '..destination, "Fehler", 0)
+    -- end
+end
 return helper
