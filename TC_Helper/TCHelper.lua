@@ -25,9 +25,10 @@ local format = require('format')
 local shortcuts = require('shortcuts')
 local helper = require('helper')
 local projectData = require('projectData')
-local selectionTools = require('selectionTools')
+local selectionTools = require('tools.selectionTools')
 local error = require('error')
 local guiStyle = require('gui.guiStyle')
+local reaperHelper = require('reaperHelper')
 --------------------------------------------------------------------------------
 local version = '3.4.4'
 local page = "https://raw.githubusercontent.com/mittim88/TCHelper/refs/heads/master/index.xml"
@@ -135,7 +136,7 @@ local BigLogoWidth = 130
 local BigLogoHeight = 110
 local BigLogoY = -10
 local assigningShortcut = nil -- Speichert den TrackGUID, für den ein Shortcut zugewiesen wird
-local trackShortcuts = trackShortcuts or {}
+local trackShortcuts = shortcuts.loadShortcuts(trackShortcuts)
 local globalShortcuts = globalShortcuts or { playPause = "P", createCue = "N" }
 local trackShortcutsSafed = reaper.GetExtState('TCHelper', 'trackShortcutsSafed') or false
 local globalShortcutsSafed = reaper.GetExtState('TCHelper', 'globalShortcutsSafed') or false
@@ -678,28 +679,6 @@ function checkSeqInfo()
     end
     return check
 end
-function getCursorPosition()
-    cursor = reaper.GetCursorContext2(true)
-end
-function getSelectedOption()
-    local oldTrack = 'empty'
-    if cursor == 1 then
-        local selectedTrack = projectData.readTrackGUID('selected')
-        if loadedtracks[selectedTrack] ~= nil then
-            if oldTrack ~= selectedTrack then
-                if loadedtracks[selectedTrack].execoption == 'Cue List' then
-                    selectedOption = 'Cue List'
-                elseif loadedtracks[selectedTrack].execoption == 'Flash Button' then
-                    selectedOption = 'Flash Button'
-                elseif loadedtracks[selectedTrack].execoption == 'Temp Button' then
-                    selectedOption = 'Temp Button'
-                end
-                --reaper.ShowConsoleMsg('\nSelected Btn Option: '..selectedOption..'   '..selectedTrack)
-                oldTrack = selectedTrack
-            end
-        end
-    end
-end
 function getTrackContent() 
     local check = '|'
     local trackAmmount = reaper.GetNumTracks()
@@ -839,24 +818,6 @@ function Color.HSV(h, s, v, a)
     local r, g, b = ImGui.ColorConvertHSVtoRGB(h, s, v)
     return ImGui.ColorConvertDouble4ToU32(r, g, b, a or 1.0)
 end
-function getLongestTrackTime()
-    local longestLength = reaper.GetProjectLength(0)
-    return longestLength
-end
-function getFirstTouchedMediaItem()
-    local numSelectedItems = reaper.CountSelectedMediaItems(0)
-    if numSelectedItems > 0 then
-        -- Loop through all selected items
-        for i = 0, numSelectedItems - 1 do
-            local item = reaper.GetSelectedMediaItem(0, i)
-            local isTouched = reaper.GetMediaItemInfo_Value(item, "B_UISEL")
-            if isTouched == 1 then
-                return item
-            end
-        end
-    end
-    return nil -- No touched items found
-end
 function ensureUniqueSeqName(seqName, existingNames)
     -- Falls der Name bereits existiert, füge eine Nummer an
     local uniqueName = seqName
@@ -869,57 +830,6 @@ function ensureUniqueSeqName(seqName, existingNames)
     -- Füge den eindeutigen Namen zur Liste der bestehenden Namen hinzu
     existingNames[uniqueName] = true
     return uniqueName
-end
-function checkTCHelperTracks()
-    local selTrack = projectData.readTrackGUID('selected')
-    local tcHelperTracks = projectData.readTrackGUID('used')
-    local trackCheck = false
-    if selTrack == nil then
-        --reaper.ShowMessageBox('\nNo Track selected\nPlease select your desired Track', 'Error', 0)
-    else
-        for i = 0, #tcHelperTracks do
-            if tcHelperTracks[i] == selTrack then
-                trackCheck = true
-                break
-            else
-                trackCheck = false
-                
-            end
-        end
-        if trackCheck == true then
-            return trackCheck
-        else
-            local rv = reaper.ShowMessageBox('\nNo TC Helper Track selected\nPlease select your desired Track', 'Error', 0)
-            if rv == 1 then
-                -- Definiere die GUID des Tracks, den du auswählen möchtest
-                local track_guid_to_select = tcHelperTracks[1]
-
-                -- Hole die Anzahl der Tracks im Projekt
-                local track_count = reaper.CountTracks(0)
-
-                -- Durchlaufe alle Tracks im Projekt
-                for i = 0, track_count - 1 do
-                    -- Hole den aktuellen Track
-                    local track = reaper.GetTrack(0, i)
-
-                    -- Hole die GUID des Tracks
-                    local guid = reaper.GetTrackGUID(track)
-
-                    -- Überprüfe, ob die GUID mit der gewünschten GUID übereinstimmt
-                    if guid == track_guid_to_select then
-                        -- Wähle den Track aus
-                        reaper.SetOnlyTrackSelected(track)
-                        --reaper.ShowMessageBox("Track mit GUID '" .. track_guid_to_select .. "' wurde ausgewählt.", "Erfolg", 0)
-                        break
-                    end
-                end
-
-                -- Aktualisiere die GUI und die Arrange-Ansicht
-                reaper.UpdateArrange()
-            end
-            return trackCheck
-        end
-    end
 end
 function mergeDataOption()
     if loadProjectMarker == false then
@@ -1282,7 +1192,7 @@ local function TCHelper_Window()
         end
         if reaper.ImGui_BeginMenu(ctx, 'Edit') then
             if ImGui.MenuItem(ctx, 'Cues') then
-                local validTracks = checkTCHelperTracks()
+                local validTracks = reaperHelper.checkTCHelperTracks()
                 if validTracks == true then
                     local selTrack = projectData.readTrackGUID('selected')
                     seqName = loadedtracks[selTrack].name
@@ -1296,7 +1206,7 @@ local function TCHelper_Window()
                 end  
             end
             if ImGui.MenuItem(ctx, 'Sequence') then
-                local validTracks = checkTCHelperTracks()
+                local validTracks = reaperHelper.checkTCHelperTracks()
                 if validTracks == true then
                     local selTrack = projectData.readTrackGUID('selected')
                     --seqName = loadedtracks[selTrack].name
@@ -2164,7 +2074,7 @@ function ToolsWindow()
     ---------------Copy Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, xButtonsStart, toptextYoffset + 155)
     if reaper.ImGui_Button(ctx, 'Copy', buttonWidth, buttonHeight) then
-        local check = checkTCHelperTracks()
+        local check = reaperHelper.checkTCHelperTracks()
 
         if check == false then
             --consoleMSG('Check False')
@@ -2179,7 +2089,7 @@ function ToolsWindow()
     reaper.ImGui_SameLine(ctx)
     ---------------Paste Item Button---------------------------------------------------------------
     if reaper.ImGui_Button(ctx, 'Paste', buttonWidth, buttonHeight) then
-        local check = checkTCHelperTracks()
+        local check = reaperHelper.checkTCHelperTracks()
 
         if check == false then
             --consoleMSG('Check False')
@@ -2369,7 +2279,7 @@ function SingleActionWindow()
     ---------------Add Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, xButtonsStart, toptextYoffset * 4.5)
     if reaper.ImGui_Button(ctx, 'Add cue', buttonWidth * 2 + 8, 80) then
-        local check = checkTCHelperTracks()
+        local check = reaperHelper.checkTCHelperTracks()
         
         if check == false then
             --consoleMSG('Check False')
@@ -2383,7 +2293,7 @@ function SingleActionWindow()
     ---------------Copy Item Button---------------------------------------------------------------
     reaper.ImGui_SetCursorPos(ctx, xButtonsStart, toptextYoffset + 155)
     if reaper.ImGui_Button(ctx, 'Copy', buttonWidth, buttonHeight) then
-        local check = checkTCHelperTracks()
+        local check = reaperHelper.checkTCHelperTracks()
         
         if check == false then
             --consoleMSG('Check False')
@@ -2399,7 +2309,7 @@ function SingleActionWindow()
     ---------------Paste Item Button---------------------------------------------------------------
     reaper.ImGui_SameLine(ctx)
     if reaper.ImGui_Button(ctx, 'Paste', buttonWidth, buttonHeight) then
-        local check = checkTCHelperTracks()
+        local check = reaperHelper.checkTCHelperTracks()
         
         if check == false then
             --consoleMSG('Check False')
@@ -2463,7 +2373,7 @@ function DoubleActionWindow()
     reaper.ImGui_SetCursorPos(ctx,xButtonsStart, toptextYoffset * 4.5)
     if reaper.ImGui_Button(ctx, '      Add\nbuttonpress', buttonWidth * 2 + 8, 80) then
         --cueName = 'Cue '..cueNr
-        local check = checkTCHelperTracks()
+        local check = reaperHelper.checkTCHelperTracks()
 
         if check == false then
             --consoleMSG('Check False')
@@ -2478,7 +2388,7 @@ function DoubleActionWindow()
      ---------------Copy Item Button---------------------------------------------------------------
      reaper.ImGui_SetCursorPos(ctx, xButtonsStart, toptextYoffset + 155)
      if reaper.ImGui_Button(ctx, 'Copy', buttonWidth, buttonHeight) then
-         local check = checkTCHelperTracks()
+         local check = reaperHelper.checkTCHelperTracks()
  
          if check == false then
              --consoleMSG('Check False')
@@ -2494,7 +2404,7 @@ function DoubleActionWindow()
      ---------------Paste Item Button---------------------------------------------------------------
      reaper.ImGui_SameLine(ctx)
      if reaper.ImGui_Button(ctx, 'Paste', buttonWidth, buttonHeight) then
-         local check = checkTCHelperTracks()
+         local check = reaperHelper.checkTCHelperTracks()
  
          if check == false then
              --consoleMSG('Check False')
@@ -2601,8 +2511,8 @@ function renameCuesWindow()
     local buttonHeight = math.max(minButtonHeight, 20)
     local textWidth = paneWidth - fadeWidth - buttonWidth - 170
     local spacer = 20
-    local usedTracks = projectData.projectData.readTrackGUID('used')
-    local tcTrack = projectData.projectData.readTrackGUID('selected')
+    local usedTracks = projectData.readTrackGUID('used')
+    local tcTrack = projectData.readTrackGUID('selected')
 
     -- Überprüfen, ob der ausgewählte Track in den verwendeten Tracks vorhanden ist
     local trackFound = false
@@ -3411,7 +3321,7 @@ function setOSCcommand(overwrite)
     local cueGUID = {}
     local cueAmmount = {}
     local usedTrackGUID = projectData.readTrackGUID('used')
-    local longestTime = getLongestTrackTime() + 10
+    local longestTime = projectData.getLongestTrackTime() + 10
     local buttonOption = ''
     local token = overwrite
     local cmdAddon = ''
@@ -4132,6 +4042,7 @@ startup = true
 local flags = reaper.ImGui_WindowFlags_MenuBar()   -- Add Menu bar and remove the rezise feature. 
 local function loop()
     if addonCheck == true then
+        cursor = reaperHelper.getCursorPosition()
         renumberItems()
         checkAndRestoreNotes()
         --setIPAdress()
@@ -4162,8 +4073,8 @@ local function loop()
         lastLiveUpdateState = liveupdatebox
         selectionTools.snapCursorToSelection()
         cueCount = projectData.getItemCount()
-        getCursorPosition()
-        getSelectedOption()
+        reaperHelper.getCursorPosition()
+        projectData.getSelectedOption()
         reaper.ImGui_PushFont(ctx, sans_serif)
         guiStyle.pushColors(ctx) -- setup Gui Colors
         guiStyle.pushStyles(ctx) -- setup Gui Styles
@@ -4186,6 +4097,8 @@ local function loop()
         if firstopened == false then
             openCuesWindow()
             openTrackWindow()
+                
+        
             firstopened = true
         end
         if cuesChecked == true then

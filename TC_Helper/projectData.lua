@@ -154,4 +154,27 @@ function projectData.getFadeTimes()
     end
     return oldFadeTime
 end
+function projectData.getSelectedOption()
+    local oldTrack = 'empty'
+    if cursor == 1 then
+        local selectedTrack = projectData.readTrackGUID('selected')
+        if loadedtracks[selectedTrack] ~= nil then
+            if oldTrack ~= selectedTrack then
+                if loadedtracks[selectedTrack].execoption == 'Cue List' then
+                    selectedOption = 'Cue List'
+                elseif loadedtracks[selectedTrack].execoption == 'Flash Button' then
+                    selectedOption = 'Flash Button'
+                elseif loadedtracks[selectedTrack].execoption == 'Temp Button' then
+                    selectedOption = 'Temp Button'
+                end
+                --reaper.ShowConsoleMsg('\nSelected Btn Option: '..selectedOption..'   '..selectedTrack)
+                oldTrack = selectedTrack
+            end
+        end
+    end
+end
+function projectData.getLongestTrackTime()
+    local longestLength = reaper.GetProjectLength(0)
+    return longestLength
+end
 return projectData

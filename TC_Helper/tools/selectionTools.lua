@@ -1,9 +1,10 @@
 local script_path = debug.getinfo(1, 'S').source:match([[^@?(.*[\/])[^\/]-$]])
 package.path = script_path .. "?.lua;" .. package.path
 local projectData = require('projectData')
+local reaperHelper = require('reaperHelper')
 local selectionTools = {}
 function selectionTools.snapCursorToSelection()
-    local selectedItem = getFirstTouchedMediaItem()
+    local selectedItem = reaperHelper.getFirstTouchedMediaItem()
     --local selectedItem = reaper.GetSelectedMediaItem(0, 0)
     if snapCursorbox == true then
         if selectedItem ~= nil then

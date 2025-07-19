@@ -1,8 +1,9 @@
 local script_path = debug.getinfo(1, 'S').source:match([[^@?(.*[\/])[^\/]-$]])
 package.path = script_path .. "?.lua;" .. package.path
 local helper = require('helper')
-local shortcuts = {}
 local projectData = require('projectData')
+local reaperHelper = require('reaperHelper')
+local shortcuts = {}
 
 function shortcuts.checkShortcuts(ctx,trackShortcuts,globalShortcuts)
     trackShortcuts = trackShortcuts or {}
@@ -28,7 +29,7 @@ function shortcuts.checkShortcuts(ctx,trackShortcuts,globalShortcuts)
     if globalShortcuts.playPause then
         local playPauseKeyFunc = reaper["ImGui_Key_" .. globalShortcuts.playPause]
         if playPauseKeyFunc and reaper.ImGui_IsKeyPressed(ctx, playPauseKeyFunc()) then
-            togglePlayPause()
+            reaperHelper.togglePlayPause()
         end
     end
 
@@ -47,8 +48,10 @@ function shortcuts.saveShortcuts(trackShortcuts)
     reaper.SetExtState("TCHelper", "trackShortcutsSafed", "true", true)
 end
 function shortcuts.loadShortcuts(trackShortcuts)
-    -- Initialisiere trackShortcuts, falls sie nicht existiert
-    trackShortcuts = trackShortcuts or {}
+    -- Erstelle eine neue Tabelle, wenn trackShortcuts nil ist
+    if not trackShortcuts then
+        trackShortcuts = {}
+    end
 
     local serializedShortcuts = reaper.GetExtState("TCHelper", "TrackShortcuts")
     local userDefined = reaper.GetExtState("TCHelper", "trackShortcutsSafed")
@@ -56,20 +59,28 @@ function shortcuts.loadShortcuts(trackShortcuts)
     if serializedShortcuts and serializedShortcuts ~= "" and userDefined == "true" then
         -- Benutzer hat eigene Shortcuts gespeichert → lade diese
         local loaded = helper.stringToTable(serializedShortcuts)
-        -- Table-Inhalt kopieren:
-        for k in pairs(trackShortcuts) do trackShortcuts[k] = nil end
-        for k, v in pairs(loaded) do trackShortcuts[k] = v end
+        if loaded then
+            -- Table-Inhalt direkt in trackShortcuts kopieren
+            for k in pairs(trackShortcuts) do trackShortcuts[k] = nil end
+            for k, v in pairs(loaded) do trackShortcuts[k] = v end
+        end
     else
         -- Noch keine eigenen Shortcuts gespeichert → Standard-Shortcuts 1-9 für die ersten 9 used Tracks
         local defaultKeys = {"1", "2", "3", "4", "5", "6", "7", "8", "9"}
-        local usedTracks = projectData.readTrackGUID("used")
+        local usedTracks = projectData.readTrackGUID("used") or {}
+        
+        -- Leere die bestehende Tabelle
+        for k in pairs(trackShortcuts) do trackShortcuts[k] = nil end
+        
+        -- Fülle mit Standardwerten
         for i, trackGUID in ipairs(usedTracks) do
-            if defaultKeys[i] then
+            if i <= 9 then  -- Nur für die ersten 9 Tracks
                 trackShortcuts[trackGUID] = defaultKeys[i]
             end
         end
-        -- NICHT speichern! Erst speichern, wenn der User einen Shortcut selbst zuweist
     end
+    
+    return trackShortcuts
 end
 function shortcuts.initializeTrackShortcuts(trackShortcuts, trackShortcutsSafed)
     trackShortcuts = trackShortcuts or {}

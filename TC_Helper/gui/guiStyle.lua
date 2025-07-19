@@ -102,5 +102,4 @@ local guiStyle = {}
     function guiStyle.popStyles(ctx)
         reaper.ImGui_PopStyleVar(ctx, 32) -- Anzahl anpassen!
     end
-
 return guiStyle
